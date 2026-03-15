@@ -12,4 +12,8 @@
  
 ## Commits (optional)
 - `feat:` new feature, `fix:` bug fix, `refactor:` restructure, `chore:` config/setup
- 
+
+## Git Workflow
+- Create a new branch for each feature or fix e.g. `feat/animation` or `fix/touch-import`
+- Never commit directly to `main`
+- Push your branch and open a pull request for teammates to review 
