@@ -1,5 +1,6 @@
 # config.py - configuration for hardware and UI settings
 
+i
 import board
 
 # camera 
