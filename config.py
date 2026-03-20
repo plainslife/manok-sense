@@ -5,7 +5,6 @@ import board
 # camera 
 CAMERA_CAPTURE_SIZE = (400, 400)
 CAMERA_FORMAT = "RGB888"
-CAMERA_ROTATE_DEG = 270
 CAMERA_QUALITY = 100
 
 # display (ili9341 via SPI)
@@ -22,13 +21,13 @@ TOUCH_BUS = 1
 TOUCH_DEVICE = 0
 
 # ui layout
-PREVIEW_X = 10
+PREVIEW_X = 5
 PREVIEW_Y = 10
-PREVIEW_W = 256
-PREVIEW_H = 240
+PREVIEW_W = 230
+PREVIEW_H = 310
  
-BTN_X = 280
-BTN_Y = 120
+BTN_X = 120
+BTN_Y = 280
 BTN_RADIUS = 30
 
 # capture
@@ -40,4 +39,8 @@ DEBOUNCE_SECS = 2.0
 # LED 
 LED_PIN = board.D12
 LED_COUNT = 1 
-LED_BRIGHTNESS = 0.5
+LED_BRIGHTNESS = 1.0
+
+# fonts
+FONT_REGULAR = "fonts/DejaVuSans.ttf"
+FONT_BOLD = "fonts/DejaVuSans-Bold.ttf"
