@@ -14,12 +14,10 @@ class TouchInput:
 
     def shutter_pressed(self) -> bool:
         pos = self.get_position()
-        print(f"{pos}")
 
         if pos is None:
             return False 
         
         tx, ty = pos
-        distance = ((tx - BTN_X) ** 2 + (ty - BTN_Y) ** 2) ** 0.5
-        print(distance < BTN_RADIUS)
+        distance = ((tx - BTN_Y) ** 2 + (ty - BTN_X) ** 2) ** 0.5
         return distance < BTN_RADIUS

@@ -1,6 +1,6 @@
 # src/display.py — Luma ILI9341 device and UI drawing helpers
- 
-from PIL import Image, ImageDraw
+
+from PIL import Image, ImageDraw, ImageFont
 from luma.core.interface.serial import spi
 from luma.lcd.device import ili9341
 from config import (
@@ -35,46 +35,32 @@ class DisplayUI:
     def __init__(self):
         self._device = _make_device()
 
-    # draw a frame into a canvas
+    # create a blank canvas to be displayed and rotated to match the device orientation
+    def blank_canvas(self) -> Image.Image:
+        return Image.new("RGB", (self._device.height, self._device.width), "black")
+
     def draw_frame(self, canvas: Image.Image, frame: Image.Image) -> None:
         preview = frame.resize((PREVIEW_W, PREVIEW_H))
         canvas.paste(preview, (PREVIEW_X, PREVIEW_Y))
 
-    # draw overlays in the camera preview display
     def draw_overlay(self, canvas: Image.Image, btn_pressed: bool = False) -> None:
         draw = ImageDraw.Draw(canvas)
 
-        # border around the preview
-        draw.rectangle((PREVIEW_X - 2, PREVIEW_Y - 2, PREVIEW_X + PREVIEW_W + 1, PREVIEW_Y + PREVIEW_H + 1), outline="white")
-
-        # live preview text
         draw.text((PREVIEW_X, PREVIEW_Y + PREVIEW_H + 4), "Live Feed", fill="white")
 
-        # shutter button animation kinda 
-        btn_fill = "red" if btn_pressed else None
-        btn_outline = "white" if not btn_pressed else "red"
+        btn_fill    = "red" if btn_pressed else None
+        btn_outline = "red" if btn_pressed else "white"
         draw.ellipse(
-            (BTN_X - BTN_RADIUS, BTN_Y - BTN_RADIUS, BTN_X + BTN_RADIUS, BTN_Y + BTN_RADIUS),
-            fill=btn_fill,
-            outline=btn_outline,
-            width=3,
+            (BTN_X - BTN_RADIUS, BTN_Y - BTN_RADIUS,
+             BTN_X + BTN_RADIUS, BTN_Y + BTN_RADIUS),
+            fill=btn_fill, outline=btn_outline, width=3,
         )
 
-    # flush(display) canvas to the screen
     def flush(self, canvas: Image.Image) -> None:
         self._device.display(canvas)
 
-    # by default will be used to render the camera preview and its overlays
     def render(self, frame: Image.Image, btn_pressed: bool = False) -> None:
-        canvas = Image.new("RGB", (self._device.width, self._device.height), "black")
-
-        #  preview frame
+        canvas = self.blank_canvas()
         self.draw_frame(canvas, frame)
-
-        # overlay
         self.draw_overlay(canvas, btn_pressed)
-
-        # flush(display) the canvas to the screen
-        self.flush(canvas)
-        
-
+        self.flush(canvas.rotate(90, expand=True))
