@@ -19,7 +19,7 @@ class StatusLed:
         self._pixels.show()
 
     def on(self) -> None:
-        self.set(255, 255, 255)
+        self.set(255, 200, 150)
 
     def off(self) -> None:
         self.set(0, 0, 0)
