@@ -1,21 +1,17 @@
+# src/boot.py
+
 import time
 from src.camera import Camera
-from src.display import DisplayUI
 from src.touch import TouchInput
 from src.led import StatusLed
 from src.animation import Animation
+from inference_bridge import start_worker
+from src.distance import DistanceSensor
 
-# labels shown in the boot checklist
-_STEPS = ["LED", "Camera", "Touch", "Preview"]
+_STEPS = ["LED", "Camera", "Touch", "Model", "Preview"]
 
 def run(animation: Animation) -> tuple[StatusLed, Camera, TouchInput]:
-    """
-    Initialize each hardware component one by one,
-    updating the boot screen after each step.
-    """
-    steps: list[tuple[str, str | None]] = [
-        (s, None) for s in _STEPS
-    ]
+    steps: list[tuple[str, str | None]] = [(s, None) for s in _STEPS]
 
     def _render(active: int, ok_up_to: int, progress: float) -> None:
         for i in range(len(steps)):
@@ -31,24 +27,32 @@ def run(animation: Animation) -> tuple[StatusLed, Camera, TouchInput]:
     _render(active=0, ok_up_to=0, progress=0.05)
     led = StatusLed()
     led.on()
-    _render(active=1, ok_up_to=1, progress=0.25)
+    _render(active=1, ok_up_to=1, progress=0.16)
     time.sleep(1)
 
     # --- Camera ---
     cam = Camera()
-    _render(active=2, ok_up_to=2, progress=0.50)
+    _render(active=2, ok_up_to=2, progress=0.33)
+    time.sleep(2)
 
-    time.sleep(1)
     # --- Touch ---
     touch = TouchInput()
-    _render(active=3, ok_up_to=3, progress=0.75)
-
+    _render(active=3, ok_up_to=3, progress=0.50)
     time.sleep(1)
-    # --- Preview (cam.start is the slow bit) ---
-    cam.start()
-    _render(active=3, ok_up_to=4, progress=1.0)
+    
+    # --- Model ---
+    start_worker()
+    _render(active=4, ok_up_to=4, progress=0.66)
+    time.sleep(0.5)
 
+    # --- Sensor ---
+    # sensor = DistanceSensor()
+    # _render(active=5, ok_up_to=5, progress=0.83)
+    # time.sleep(0.5)
+    
+    # --- Preview ---
+    cam.start()
+    _render(active=5, ok_up_to=6, progress=1.0)
     time.sleep(1)
 
     return led, cam, touch
-

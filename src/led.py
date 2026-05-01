@@ -23,3 +23,19 @@ class StatusLed:
 
     def off(self) -> None:
         self.set(0, 0, 0)
+
+    # just in case led stops working
+    def reload(self) -> None:
+        print("[LED] Reloading...")
+        try:
+            self._pixels.deinit()
+        except Exception:
+            pass
+        self._pixels = neopixel.NeoPixel(
+            LED_PIN,
+            LED_COUNT,
+            brightness=LED_BRIGHTNESS,
+            auto_write=False,
+        )
+        self.on()
+        print("[LED] Reload complete")
