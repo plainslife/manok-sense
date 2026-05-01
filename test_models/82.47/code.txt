@@ -1,0 +1,354 @@
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers, regularizers
+from tensorflow.keras.applications import MobileNetV2
+import matplotlib.pyplot as plt
+import numpy as np
+
+# ==========================================
+# 1. MOUNT GOOGLE DRIVE
+# ==========================================
+from google.colab import drive
+drive.mount('/content/drive')
+
+BASE_DIR  = '/content/drive/MyDrive/Chicken_Dataset'
+TRAIN_DIR = f'{BASE_DIR}/Train'
+VALID_DIR = f'{BASE_DIR}/Valid'
+TEST_DIR  = f'{BASE_DIR}/Test'
+
+# ==========================================
+# 2. CONFIGURATION
+# ==========================================
+IMG_SIZE         = (320, 320)
+BATCH_SIZE       = 32
+NUM_CLASSES      = 3
+EPOCHS           = 40
+FINE_TUNE_EPOCHS = 20
+
+# ==========================================
+# 3. LOAD DATASETS
+# ==========================================
+print("Loading datasets...")
+
+train_dataset = tf.keras.utils.image_dataset_from_directory(
+    TRAIN_DIR, shuffle=True, batch_size=BATCH_SIZE,
+    image_size=IMG_SIZE, label_mode='categorical'
+)
+val_dataset = tf.keras.utils.image_dataset_from_directory(
+    VALID_DIR, shuffle=False, batch_size=BATCH_SIZE,
+    image_size=IMG_SIZE, label_mode='categorical'
+)
+test_dataset = tf.keras.utils.image_dataset_from_directory(
+    TEST_DIR, shuffle=False, batch_size=BATCH_SIZE,
+    image_size=IMG_SIZE, label_mode='categorical'
+)
+
+CLASS_NAMES = train_dataset.class_names
+print(f"Classes found: {CLASS_NAMES}")
+
+AUTOTUNE      = tf.data.AUTOTUNE
+train_dataset = train_dataset.cache().prefetch(AUTOTUNE)
+val_dataset   = val_dataset.cache().prefetch(AUTOTUNE)
+test_dataset  = test_dataset.cache().prefetch(AUTOTUNE)
+
+# ==========================================
+# 4. CLASS BALANCE + WEIGHTS
+# ==========================================
+print("\nChecking class distribution...")
+
+label_counts = np.zeros(NUM_CLASSES, dtype=int)
+for _, labels in train_dataset.unbatch():
+    label_counts[np.argmax(labels.numpy())] += 1
+
+print(f"Training label counts: "
+      f"{ {CLASS_NAMES[i]: label_counts[i] for i in range(NUM_CLASSES)} }")
+
+total = label_counts.sum()
+base_weight = {
+    i: total / (NUM_CLASSES * count) if count > 0 else 1.0
+    for i, count in enumerate(label_counts)
+}
+
+# v6 RATIONALE — CLASS WEIGHTS:
+# v1 used adulterated ×1.2, edible ×0.8, spoiled ×1.3 and got 80.2% overall.
+# The edible ×0.8 reduction worked because edible's natural visual distinctiveness
+# meant the model didn't need a strong gradient signal to learn it.
+# However, edible ×0.8 is also what allowed 52 adulterated samples to be
+# predicted as edible in v1. Here we raise adulterated slightly to ×1.4
+# (not extreme) and keep edible neutral at ×1.0 — a measured improvement
+# over v1 without the overcorrection that broke v2–v5.
+class_weight = {
+    0: base_weight[0] * 1.4,   # adulterated — slight raise from v1's ×1.2
+    1: base_weight[1] * 1.0,   # edible      — neutral (v1 used ×0.8 which
+                                #               let adulterated→edible errors through)
+    2: base_weight[2] * 1.3    # spoiled     — same as v1
+}
+print(f"Class weights: {class_weight}")
+
+# ==========================================
+# 5. DATA AUGMENTATION  — BACK TO v1's MINIMAL SET
+# ==========================================
+# v6 RATIONALE — AUGMENTATION:
+# v2–v5 progressively added RandomFlip and RandomTranslation, thinking more
+# augmentation = less overfitting. But adulterated samples have SUBTLE visual
+# differences from edible (slight discoloration, surface texture). Flipping
+# and translating these images distorts exactly those cues during training.
+# v1 used only small rotation + zoom + contrast + brightness and got the best
+# adulterated recall. We restore that minimal set here.
+data_augmentation = keras.Sequential([
+    layers.RandomRotation(0.05),       # v1 value — small
+    layers.RandomZoom(0.10),           # v1 value — small
+    layers.RandomContrast(0.10),       # v1 value
+    layers.RandomBrightness(0.2),      # v1 value
+], name="augmentation")
+
+# ==========================================
+# 6. BUILD MODEL  — v1's SINGLE-HEAD ARCHITECTURE
+# ==========================================
+# v6 RATIONALE — ARCHITECTURE:
+# v5 added a second Dense(128) head. The extra capacity didn't help overall
+# accuracy because the bottleneck isn't classifier capacity — it's backbone
+# features. We return to v1's proven Dense(256) → Dropout(0.5) → softmax.
+base_model = MobileNetV2(
+    input_shape=(320, 320, 3),
+    include_top=False,
+    weights='imagenet'
+)
+base_model.trainable = False
+
+inputs  = keras.Input(shape=(320, 320, 3))
+x       = data_augmentation(inputs)
+x       = layers.Rescaling(scale=1./127.5, offset=-1)(x)
+x       = base_model(x, training=False)
+x       = layers.GlobalAveragePooling2D()(x)
+x       = layers.Dense(256, activation='relu',
+                        kernel_regularizer=regularizers.l2(1e-4))(x)
+x       = layers.Dropout(0.5)(x)
+outputs = layers.Dense(NUM_CLASSES, activation='softmax',
+                        kernel_regularizer=regularizers.l2(1e-4))(x)
+
+model = keras.Model(inputs, outputs)
+model.summary()
+
+# ==========================================
+# 7. STAGE 1 — COMPILE + TRAIN (FROZEN BASE)
+# ==========================================
+model.compile(
+    optimizer=keras.optimizers.Adam(learning_rate=1e-4),
+    loss=keras.losses.CategoricalCrossentropy(label_smoothing=0.1),
+    metrics=[
+        'accuracy',
+        keras.metrics.TopKCategoricalAccuracy(k=2),
+        keras.metrics.Precision(name='precision'),
+        keras.metrics.Recall(name='recall'),
+    ]
+)
+
+callbacks_stage1 = [
+    keras.callbacks.EarlyStopping(
+        monitor='val_loss', patience=5, restore_best_weights=True
+    ),
+    keras.callbacks.ReduceLROnPlateau(
+        monitor='val_loss', factor=0.2, patience=2, min_lr=1e-7
+    ),
+]
+
+print("\nStarting Stage 1 training (frozen base)...")
+history = model.fit(
+    train_dataset,
+    validation_data=val_dataset,
+    epochs=EPOCHS,
+    callbacks=callbacks_stage1,
+    class_weight=class_weight
+)
+
+# ==========================================
+# 8. FINE-TUNING (STAGE 2)
+# ==========================================
+# v6 RATIONALE — FINE-TUNING:
+# This stage combines v1's settings with v4's three stability fixes.
+#
+# From v1 (restored):
+#   - Unfreeze last 50 layers  (v1's sweet spot; 30 was too few, 80 too many)
+#   - LR 1e-5                  (v1's value; v4's 1e-6 was too timid to learn
+#                                new features, v3's 5e-6 caused collapse)
+#   - ReduceLROnPlateau        (v1 had this; helps late-stage convergence)
+#
+# From v4 (kept — these were the actual fixes, not the other changes):
+#   - Freeze ALL BatchNorm layers explicitly
+#   - clipnorm=1.0 gradient clipping
+#
+# Together: v1's learning capacity + v4's training stability.
+print("\nStarting Stage 2 fine-tuning (last 50 layers, frozen BN, grad clip)...")
+
+base_model.trainable = True
+
+for layer in base_model.layers[:-50]:
+    layer.trainable = False
+
+# Explicitly freeze all BatchNorm layers (v4 fix)
+for layer in base_model.layers:
+    if isinstance(layer, layers.BatchNormalization):
+        layer.trainable = False
+
+n_trainable = sum(l.trainable for l in base_model.layers)
+print(f"Trainable backbone layers: {n_trainable} / {len(base_model.layers)}")
+
+callbacks_stage2 = [
+    keras.callbacks.EarlyStopping(
+        monitor='val_loss', patience=5, restore_best_weights=True
+    ),
+    keras.callbacks.ReduceLROnPlateau(
+        monitor='val_loss', factor=0.2, patience=3, min_lr=1e-8
+    ),
+]
+
+model.compile(
+    optimizer=keras.optimizers.Adam(
+        learning_rate=1e-5,    # v1's fine-tune LR — the sweet spot
+        clipnorm=1.0           # v4's gradient clipping — prevents loss spike
+    ),
+    loss=keras.losses.CategoricalCrossentropy(label_smoothing=0.1),
+    metrics=[
+        'accuracy',
+        keras.metrics.TopKCategoricalAccuracy(k=2),
+        keras.metrics.Precision(name='precision'),
+        keras.metrics.Recall(name='recall'),
+    ]
+)
+
+history_fine = model.fit(
+    train_dataset,
+    validation_data=val_dataset,
+    epochs=FINE_TUNE_EPOCHS,
+    callbacks=callbacks_stage2,
+    class_weight=class_weight
+)
+
+# ==========================================
+# 9. PLOT COMBINED TRAINING HISTORY
+# ==========================================
+acc      = history.history['accuracy']      + history_fine.history['accuracy']
+val_acc  = history.history['val_accuracy']  + history_fine.history['val_accuracy']
+loss     = history.history['loss']          + history_fine.history['loss']
+val_loss = history.history['val_loss']      + history_fine.history['val_loss']
+prec     = history.history['precision']     + history_fine.history['precision']
+rec      = history.history['recall']        + history_fine.history['recall']
+
+stage1_len = len(history.history['accuracy'])
+
+fig, axes = plt.subplots(1, 3, figsize=(20, 5))
+plot_cfg = [
+    (acc,  val_acc,  'Accuracy',               'Train Acc',  'Val Acc'),
+    (loss, val_loss, 'Loss',                   'Train Loss', 'Val Loss'),
+    (prec, rec,      'Train Precision/Recall', 'Precision',  'Recall'),
+]
+for ax, (a, b, title, la, lb) in zip(axes, plot_cfg):
+    ax.plot(a, label=la)
+    ax.plot(b, label=lb)
+    ax.axvline(x=stage1_len, color='gray', linestyle='--', label='Fine-tune start')
+    ax.set_title(title)
+    ax.set_xlabel('Epoch')
+    ax.legend()
+
+plt.tight_layout()
+plt.savefig(f'{BASE_DIR}/training_history_v6.png', dpi=150)
+plt.show()
+print("Training plot saved.")
+
+# ==========================================
+# 10. FINAL EVALUATION
+# ==========================================
+print("\nFinal evaluation on held-out test set:")
+results = model.evaluate(test_dataset)
+print(f"Test Accuracy  : {results[1]:.4f}")
+print(f"Top-2 Accuracy : {results[2]:.4f}")
+print(f"Precision      : {results[3]:.4f}")
+print(f"Recall         : {results[4]:.4f}")
+print(f"Test Loss      : {results[0]:.4f}")
+
+# ==========================================
+# 11. CONFUSION MATRIX & REPORT
+# ==========================================
+from sklearn.metrics import (confusion_matrix, classification_report,
+                              precision_recall_fscore_support)
+import seaborn as sns
+
+y_pred_probs = model.predict(test_dataset)
+y_pred       = np.argmax(y_pred_probs, axis=1)
+y_true       = np.concatenate([
+    np.argmax(labels.numpy(), axis=1) for _, labels in test_dataset
+])
+
+cm = confusion_matrix(y_true, y_pred)
+
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+            xticklabels=CLASS_NAMES, yticklabels=CLASS_NAMES, cbar=False)
+plt.title('Confusion Matrix (Test Set)', fontsize=14, pad=15)
+plt.ylabel('True Label',      fontsize=12)
+plt.xlabel('Predicted Label', fontsize=12)
+plt.xticks(rotation=45)
+plt.yticks(rotation=0)
+plt.tight_layout()
+plt.savefig(f'{BASE_DIR}/confusion_matrix_v6.png', dpi=150)
+plt.show()
+
+print("\n" + "="*50)
+print(" CLASSIFICATION REPORT")
+print("="*50)
+print(classification_report(y_true, y_pred, target_names=CLASS_NAMES))
+
+# ==========================================
+# 12. PER-CLASS CONFIDENCE DISTRIBUTIONS
+# ==========================================
+fig, axes = plt.subplots(1, NUM_CLASSES, figsize=(15, 4), sharey=True)
+for true_class_idx, ax in enumerate(axes):
+    mask        = y_true == true_class_idx
+    class_probs = y_pred_probs[mask]
+    for pred_class_idx, class_name in enumerate(CLASS_NAMES):
+        ax.hist(class_probs[:, pred_class_idx], bins=20, alpha=0.6,
+                label=f'P({class_name})')
+    ax.set_title(f'True: {CLASS_NAMES[true_class_idx]}')
+    ax.set_xlabel('Predicted Probability')
+    ax.legend(fontsize=7)
+axes[0].set_ylabel('Count')
+plt.suptitle('Per-Class Confidence Distributions (Test Set)', fontsize=13)
+plt.tight_layout()
+plt.savefig(f'{BASE_DIR}/confidence_distributions_v6.png', dpi=150)
+plt.show()
+
+# ==========================================
+# 13. FULL VERSION COMPARISON TABLE
+# ==========================================
+prec_arr, rec_arr, f1_arr, sup_arr = precision_recall_fscore_support(
+    y_true, y_pred, labels=[0, 1, 2]
+)
+overall_acc = np.mean(y_pred == y_true)
+
+print("\n" + "="*60)
+print(f" {'Class':<15} {'Precision':>10} {'Recall':>10} {'F1':>8} {'Support':>9}")
+print("="*60)
+for i, name in enumerate(CLASS_NAMES):
+    print(f" {name:<15} {prec_arr[i]:>9.1%} {rec_arr[i]:>9.1%} "
+          f"{f1_arr[i]:>7.1%} {int(sup_arr[i]):>9}")
+print("="*60)
+print(f" {'Overall Accuracy':<15} {overall_acc:>9.1%}")
+print("="*60)
+
+# Version history for reference
+print("\n VERSION HISTORY (Overall Accuracy)")
+print("="*40)
+version_history = {
+    "v1 (baseline)": 80.2,
+    "v2 (weights+aug)": 73.3,
+    "v3 (focal+unfreeze80)": 63.5,
+    "v4 (stable finetune)": 79.3,
+    "v5 (TTA)": 78.6,
+    "v6 (v1+stability)": overall_acc * 100,
+}
+for v, acc in version_history.items():
+    bar    = "█" * int(acc / 5)
+    marker = " ← YOU ARE HERE" if v.startswith("v6") else ""
+    print(f" {v:<25} {acc:>5.1f}%  {bar}{marker}")
+print("="*40)

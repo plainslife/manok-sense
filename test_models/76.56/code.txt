@@ -1,0 +1,285 @@
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+from tensorflow.keras.applications import MobileNetV2
+import matplotlib.pyplot as plt
+import numpy as np
+
+# ==========================================
+# 1. MOUNT GOOGLE DRIVE
+# ==========================================
+from google.colab import drive
+drive.mount('/content/drive')
+
+BASE_DIR  = '/content/drive/MyDrive/Chicken_Dataset'
+TRAIN_DIR = f'{BASE_DIR}/Train'
+VALID_DIR = f'{BASE_DIR}/Valid'
+TEST_DIR  = f'{BASE_DIR}/Test'
+
+# ==========================================
+# 2. CONFIGURATION
+# ==========================================
+IMG_SIZE   = (224, 224)
+BATCH_SIZE = 32
+NUM_CLASSES = 3    # adulterated, edible, spoiled
+EPOCHS      = 40
+FINE_TUNE_EPOCHS = 20
+
+# ==========================================
+# 3. LOAD DATASETS
+# ==========================================
+print("Loading datasets...")
+
+train_dataset = tf.keras.utils.image_dataset_from_directory(
+    TRAIN_DIR,
+    shuffle=True,
+    batch_size=BATCH_SIZE,
+    image_size=IMG_SIZE,
+    label_mode='categorical'
+)
+
+val_dataset = tf.keras.utils.image_dataset_from_directory(
+    VALID_DIR,
+    shuffle=False,
+    batch_size=BATCH_SIZE,
+    image_size=IMG_SIZE,
+    label_mode='categorical'
+)
+
+# Keep test set STRICTLY for final evaluation
+test_dataset = tf.keras.utils.image_dataset_from_directory(
+    TEST_DIR,
+    shuffle=False,
+    batch_size=BATCH_SIZE,
+    image_size=IMG_SIZE,
+    label_mode='categorical'
+)
+
+CLASS_NAMES = train_dataset.class_names
+print(f"Classes found: {CLASS_NAMES}")
+
+AUTOTUNE = tf.data.AUTOTUNE
+train_dataset = train_dataset.cache().prefetch(AUTOTUNE)
+val_dataset   = val_dataset.cache().prefetch(AUTOTUNE)
+test_dataset  = test_dataset.cache().prefetch(AUTOTUNE)
+
+# ==========================================
+# 4. CHECK CLASS BALANCE
+# ==========================================
+print("\nChecking class distribution...")
+
+label_counts = np.zeros(NUM_CLASSES, dtype=int)
+for _, labels in train_dataset.unbatch():
+    label_counts[np.argmax(labels.numpy())] += 1
+
+print(f"Training label counts: { {CLASS_NAMES[i]: label_counts[i] for i in range(NUM_CLASSES)} }")
+
+total = label_counts.sum()
+class_weight = {
+    i: total / (NUM_CLASSES * count) if count > 0 else 1.0
+    for i, count in enumerate(label_counts)
+}
+# Penalize edible predictions more
+class_weight = {
+    0: class_weight[0] * 1.2,  # adulterated
+    1: class_weight[1] * 0.8,  # edible (reduce weight → less dominance)
+    2: class_weight[2] * 1.3   # spoiled (increase importance)
+}
+print(f"Class weights: {class_weight}")
+
+# ==========================================
+# 5. DATA AUGMENTATION
+# ==========================================
+data_augmentation = keras.Sequential([
+    layers.RandomFlip("horizontal"),
+    layers.RandomRotation(0.05),
+    layers.RandomZoom(0.1),
+    layers.RandomContrast(0.1),
+    layers.RandomBrightness(0.1)
+], name="augmentation")
+
+# ==========================================
+# 6. BUILD MODEL
+# ==========================================
+base_model = MobileNetV2(
+    input_shape=(224, 224, 3),
+    include_top=False,
+    weights='imagenet'
+)
+base_model.trainable = False  # Freeze for Stage 1
+
+inputs = keras.Input(shape=(224, 224, 3))
+
+x = data_augmentation(inputs)
+
+# FIX: Rescaling instead of Lambda(preprocess_input) — safe for TFLite export
+x = layers.Rescaling(scale=1./127.5, offset=-1)(x)
+
+# Keep training=False in BOTH stages to prevent BatchNorm stat updates
+x = base_model(x, training=False)
+x = layers.GlobalAveragePooling2D()(x)
+x = layers.Dropout(0.4)(x)
+
+outputs = layers.Dense(NUM_CLASSES, activation='softmax')(x)
+
+model = keras.Model(inputs, outputs)
+model.summary()
+
+# ==========================================
+# 7. STAGE 1 CALLBACKS
+# ==========================================
+callbacks_stage1 = [
+    keras.callbacks.EarlyStopping(
+        monitor='val_loss',
+        patience=3,
+        restore_best_weights=True
+    ),
+    keras.callbacks.ReduceLROnPlateau(
+        monitor='val_loss',
+        factor=0.2,
+        patience=2,
+        min_lr=1e-7
+    )
+]
+
+# ==========================================
+# 8. COMPILE + TRAIN (STAGE 1)
+# ==========================================
+model.compile(
+    optimizer=keras.optimizers.Adam(learning_rate=1e-4),
+    loss=keras.losses.CategoricalCrossentropy(label_smoothing=0.1),
+    metrics=['accuracy', keras.metrics.TopKCategoricalAccuracy(k=2)]
+)
+
+print("\nStarting Stage 1 training (frozen base)...")
+history = model.fit(
+    train_dataset,
+    validation_data=val_dataset,
+    epochs=EPOCHS,
+    callbacks=callbacks_stage1,
+    class_weight=class_weight
+)
+
+# ==========================================
+# 9. FINE-TUNING (STAGE 2)
+# ==========================================
+print("\nStarting Stage 2 fine-tuning (unfreezing last 30 layers)...")
+
+base_model.trainable = True
+
+# Freeze early layers, unfreeze last 30
+for layer in base_model.layers[:-30]:
+    layer.trainable = False
+
+# FIX: Slightly more patience for fine-tuning (loss may spike on unfreeze)
+callbacks_stage2 = [
+    keras.callbacks.EarlyStopping(
+        monitor='val_loss',
+        patience=5,
+        restore_best_weights=True
+    ),
+    keras.callbacks.ReduceLROnPlateau(
+        monitor='val_loss',
+        factor=0.2,
+        patience=3,
+        min_lr=1e-8
+    )
+]
+
+model.compile(
+    optimizer=keras.optimizers.Adam(learning_rate=1e-5),
+    loss=keras.losses.CategoricalCrossentropy(label_smoothing=0.1),
+    metrics=['accuracy']
+)
+
+history_fine = model.fit(
+    train_dataset,
+    validation_data=val_dataset,
+    epochs=FINE_TUNE_EPOCHS,
+    callbacks=callbacks_stage2,
+    class_weight=class_weight
+)
+
+# ==========================================
+# 10. PLOT COMBINED TRAINING HISTORY
+# ==========================================
+# FIX: Merge both histories for a complete view
+acc     = history.history['accuracy']     + history_fine.history['accuracy']
+val_acc = history.history['val_accuracy'] + history_fine.history['val_accuracy']
+loss    = history.history['loss']         + history_fine.history['loss']
+val_loss= history.history['val_loss']     + history_fine.history['val_loss']
+
+stage1_len = len(history.history['accuracy'])
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+ax1.plot(acc,     label='Train Accuracy')
+ax1.plot(val_acc, label='Val Accuracy')
+ax1.axvline(x=stage1_len, color='gray', linestyle='--', label='Fine-tune start')
+ax1.set_title('Accuracy')
+ax1.set_xlabel('Epoch')
+ax1.legend()
+
+ax2.plot(loss,     label='Train Loss')
+ax2.plot(val_loss, label='Val Loss')
+ax2.axvline(x=stage1_len, color='gray', linestyle='--', label='Fine-tune start')
+ax2.set_title('Loss')
+ax2.set_xlabel('Epoch')
+ax2.legend()
+
+plt.tight_layout()
+plt.savefig('/content/drive/MyDrive/Chicken_Dataset/training_history.png', dpi=150)
+plt.show()
+print("Training plot saved.")
+
+# ==========================================
+# 11. FINAL EVALUATION ON TEST SET
+# ==========================================
+print("\nFinal evaluation on held-out test set:")
+test_loss, test_acc = model.evaluate(test_dataset)
+print(f"Test Accuracy: {test_acc:.4f} | Test Loss: {test_loss:.4f}")
+
+# ==========================================
+# 12. CONFUSION MATRIX & CLASSIFICATION REPORT
+# ==========================================
+from sklearn.metrics import confusion_matrix, classification_report
+import seaborn as sns
+
+print("\nGenerating predictions for the confusion matrix...")
+
+# Since test_dataset has shuffle=False, the order of predictions 
+# will perfectly match the order of the true labels.
+y_pred_probs = model.predict(test_dataset)
+y_pred = np.argmax(y_pred_probs, axis=1)
+
+# Extract true labels from the test dataset
+y_true = np.concatenate([np.argmax(labels.numpy(), axis=1) for _, labels in test_dataset])
+
+# Generate the confusion matrix
+cm = confusion_matrix(y_true, y_pred)
+
+# Plot it using Seaborn for a clean heatmap look
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+            xticklabels=CLASS_NAMES, 
+            yticklabels=CLASS_NAMES,
+            cbar=False)
+
+plt.title('Confusion Matrix (Test Set)', fontsize=14, pad=15)
+plt.ylabel('True Label', fontsize=12)
+plt.xlabel('Predicted Label', fontsize=12)
+plt.xticks(rotation=45)
+plt.yticks(rotation=0)
+plt.tight_layout()
+
+# Save and display the plot
+cm_path = '/content/drive/MyDrive/Chicken_Dataset/confusion_matrix.png'
+plt.savefig(cm_path, dpi=150)
+plt.show()
+print(f"Confusion matrix saved to: {cm_path}")
+
+# Print out detailed metrics per class
+print("\n" + "="*50)
+print(" CLASSIFICATION REPORT")
+print("="*50)
+print(classification_report(y_true, y_pred, target_names=CLASS_NAMES))
