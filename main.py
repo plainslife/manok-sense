@@ -87,10 +87,11 @@ def main() -> None:
     captured_frames: list = []
 
     # Settings state
-    settings_drawn          = False
+    settings_drawn              = False
     settings_status: str | None = None
-    _poweroff_confirm       = False
-    _poweroff_confirm_at    = 0.0
+    settings_status_at          = 0.0   # monotonic time of last cam/led action
+    _poweroff_confirm           = False
+    _poweroff_confirm_at        = 0.0
 
     # Gallery grid state
     gallery_sessions: list[list[str]] = []
@@ -212,7 +213,7 @@ def main() -> None:
 
                 label, conf, probs = run_inference(cam, frames=captured_frames)
 
-                # Save all 3 frames under one session timestamp
+                # Save all frames under one session timestamp
                 gallery.save_capture(captured_frames, label, conf)
 
                 # Keep frames for result navigation before clearing
@@ -235,7 +236,6 @@ def main() -> None:
                     animation.show_result_with_frame(result_frames, result_frame_idx, label)
                     result_drawn = True
 
-                # Navigate between the 3 captured frames
                 if touch.gallery_prev_pressed() and debounced:
                     if result_frame_idx > 0:
                         last_touch       = now
@@ -264,6 +264,12 @@ def main() -> None:
                         poweroff_confirm=_poweroff_confirm,
                     )
                     settings_drawn = True
+
+                # Auto-clear cam/led feedback after 2 seconds
+                if settings_status in ("cam_ok", "cam_err", "led_ok", "led_err"):
+                    if (now - settings_status_at) > 2.0:
+                        settings_status = None
+                        settings_drawn  = False
 
                 # Back to preview
                 if touch.shutter_pressed() and debounced:
@@ -312,15 +318,25 @@ def main() -> None:
                     last_touch = now
                     try:
                         cam.reload()
+                        settings_status = "cam_ok"
                         print("[Settings] Camera reloaded")
                     except Exception as e:
+                        settings_status = "cam_err"
                         print(f"[Settings] Camera reload failed: {e}")
-                    settings_drawn = False
+                    settings_status_at = now
+                    settings_drawn     = False
 
                 elif touch.led_reload_pressed() and debounced:
-                    last_touch     = now
-                    led.reload()
-                    settings_drawn = False
+                    last_touch = now
+                    try:
+                        led.reload()
+                        settings_status = "led_ok"
+                        print("[Settings] LED reloaded")
+                    except Exception as e:
+                        settings_status = "led_err"
+                        print(f"[Settings] LED reload failed: {e}")
+                    settings_status_at = now
+                    settings_drawn     = False
 
                 # ── Power off — two-tap confirm ──────────────────────────────
                 elif touch.poweroff_pressed() and debounced:
@@ -387,14 +403,12 @@ def main() -> None:
                     )
                     gallery_preview_drawn = True
 
-                # Back to grid
                 if touch.shutter_pressed() and debounced:
                     last_touch            = now
                     _delete_confirm       = False
                     gallery_drawn         = False
                     state                 = _GALLERY
 
-                # Navigate prev: within session first, then last frame of prev session
                 elif touch.gallery_prev_pressed() and debounced:
                     if gallery_frame_idx > 0:
                         last_touch            = now
@@ -408,7 +422,6 @@ def main() -> None:
                         _delete_confirm       = False
                         gallery_preview_drawn = False
 
-                # Navigate next: within session first, then first frame of next session
                 elif touch.gallery_next_pressed() and debounced:
                     current_session = gallery_sessions[gallery_session_idx]
                     if gallery_frame_idx < len(current_session) - 1:
@@ -423,7 +436,6 @@ def main() -> None:
                         _delete_confirm       = False
                         gallery_preview_drawn = False
 
-                # Delete entire session — two-tap confirm
                 elif touch.gallery_delete_pressed() and debounced:
                     last_touch = now
 
@@ -440,7 +452,6 @@ def main() -> None:
                         _delete_confirm  = False
                         gallery_drawn    = False
 
-                        # Clamp session index after deletion
                         if gallery_session_idx >= len(gallery_sessions):
                             gallery_session_idx = max(0, len(gallery_sessions) - 1)
                         gallery_frame_idx     = 0
@@ -451,7 +462,6 @@ def main() -> None:
                         _delete_confirm_at = now
                         gallery_preview_drawn = False
 
-                # Reset confirm after 3 s with no second tap
                 if _delete_confirm and (now - _delete_confirm_at) > 3.0:
                     _delete_confirm       = False
                     gallery_preview_drawn = False
