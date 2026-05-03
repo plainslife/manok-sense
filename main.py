@@ -1,4 +1,6 @@
 # main.py
+
+import os
 import time
 import src.boot as boot
 import src.settings as settings
@@ -13,12 +15,13 @@ from src.distance import DistanceSensor
 from config import DEBOUNCE_SECS, DISTANCE_MIN_CM, DISTANCE_MAX_CM
 
 # ── States ─────────────────────────────────────────────────────────────────
-_PREVIEW    = "preview"
-_CAPTURING  = "capturing"
-_PROCESSING = "processing"
-_RESULT     = "result"
-_SETTINGS   = "settings"
-_GALLERY = "gallery"
+_PREVIEW         = "preview"
+_CAPTURING       = "capturing"
+_PROCESSING      = "processing"
+_RESULT          = "result"
+_SETTINGS        = "settings"
+_GALLERY         = "gallery"
+_GALLERY_PREVIEW = "gallery_preview"
 
 # ── Capture config ──────────────────────────────────────────────────────────
 _N_PHOTOS    = 3    # number of photos to average
@@ -71,22 +74,36 @@ def main() -> None:
     time.sleep(0.8)
 
     # ── Main loop state ─────────────────────────────────────────────────
-    state        = _PREVIEW
-    last_touch   = 0.0
+    state      = _PREVIEW
+    last_touch = 0.0
 
-    result          = None
-    result_drawn    = False
+    # Result state
+    result: tuple | None = None
+    result_drawn          = False
+    result_frames: list   = []
+    result_frame_idx      = 0
+
+    # Capture state
     captured_frames: list = []
 
-    settings_drawn  = False
+    # Settings state
+    settings_drawn          = False
     settings_status: str | None = None
+    _poweroff_confirm       = False
+    _poweroff_confirm_at    = 0.0
 
-    gallery_page  = 0
-    gallery_files: list = []
-    gallery_drawn = False
+    # Gallery grid state
+    gallery_sessions: list[list[str]] = []
+    gallery_page                       = 0
+    gallery_drawn                      = False
 
-    _poweroff_confirm    = False
-    _poweroff_confirm_at = 0.0
+    # Gallery preview state
+    gallery_session_idx   = 0
+    gallery_frame_idx     = 0
+    gallery_preview_drawn = False
+    _delete_confirm       = False
+    _delete_confirm_at    = 0.0
+
     _cam_fail_count = 0
 
     try:
@@ -98,13 +115,12 @@ def main() -> None:
             if sensor_active:
                 distance_cm = sensor.get_cm()
                 if not sensor.is_ok:
-                    # Sensor dropped out mid-session — degrade gracefully
                     sensor_active = False
                     print("[Main] Distance sensor disconnected — running without it")
                 dist_state = _get_distance_state(distance_cm)
             else:
                 distance_cm = None
-                dist_state  = "ok"   # treat as in-range when sensor is off
+                dist_state  = "ok"
 
             # ── PREVIEW ────────────────────────────────────────────────
             if state == _PREVIEW:
@@ -121,12 +137,12 @@ def main() -> None:
                         except Exception as re:
                             print(f"[Camera] Reload failed: {re}")
                         _cam_fail_count = 0
-                    continue   # skip this loop tick, try again next iteration
+                    continue
                 display.render(
                     frame,
-                    distance_state  = dist_state,
-                    distance_cm     = distance_cm,
-                    sensor_enabled  = sensor_active,
+                    distance_state = dist_state,
+                    distance_cm    = distance_cm,
+                    sensor_enabled = sensor_active,
                 )
 
                 if touch.settings_pressed() and debounced:
@@ -134,16 +150,15 @@ def main() -> None:
                     settings_drawn  = False
                     settings_status = None
                     state           = _SETTINGS
-                
+
                 elif touch.gallery_pressed() and debounced:
-                    last_touch    = now
-                    gallery_files = gallery.list_captures()
-                    gallery_page  = 0
-                    gallery_drawn = False
-                    state         = _GALLERY
+                    last_touch       = now
+                    gallery_sessions = gallery.list_sessions()
+                    gallery_page     = 0
+                    gallery_drawn    = False
+                    state            = _GALLERY
 
                 elif touch.shutter_pressed() and debounced:
-                    # Respect distance gate only when sensor is active
                     if sensor_active and dist_state != "ok":
                         pass   # button locked — out of range
                     else:
@@ -170,7 +185,6 @@ def main() -> None:
                         state = _PROCESSING
 
                 else:
-                    # Live feed while waiting for next button press
                     try:
                         frame = cam.grab_frame()
                         _cam_fail_count = 0
@@ -184,12 +198,12 @@ def main() -> None:
                             except Exception as re:
                                 print(f"[Camera] Reload failed: {re}")
                             _cam_fail_count = 0
-                        continue   # skip this loop tick, try again next iteration
+                        continue
                     display.render(
                         frame,
-                        distance_state  = dist_state,
-                        distance_cm     = distance_cm,
-                        sensor_enabled  = sensor_active,
+                        distance_state = dist_state,
+                        distance_cm    = distance_cm,
+                        sensor_enabled = sensor_active,
                     )
 
             # ── PROCESSING ─────────────────────────────────────────────
@@ -197,13 +211,17 @@ def main() -> None:
                 animation.show_processing()
 
                 label, conf, probs = run_inference(cam, frames=captured_frames)
-                
-                gallery.save_capture(captured_frames[len(captured_frames) // 2], label, conf)
 
-                result          = (label, conf, probs)
-                result_drawn    = False
-                captured_frames = []
-                state           = _RESULT
+                # Save all 3 frames under one session timestamp
+                gallery.save_capture(captured_frames, label, conf)
+
+                # Keep frames for result navigation before clearing
+                result_frames    = list(captured_frames)
+                result           = (label, conf, probs)
+                result_drawn     = False
+                result_frame_idx = 0
+                captured_frames  = []
+                state            = _RESULT
 
                 r, g, b = _LED_COLORS.get(label, (255, 255, 255))
                 led.set(r, g, b)
@@ -214,29 +232,46 @@ def main() -> None:
             elif state == _RESULT:
                 if not result_drawn:
                     label, conf, probs = result
-                    animation.show_result(label, conf, probs)
+                    animation.show_result_with_frame(result_frames, result_frame_idx, label)
                     result_drawn = True
 
-                if touch.shutter_pressed() and debounced:
-                    last_touch = now
-                    state      = _PREVIEW
-                    result     = None
+                # Navigate between the 3 captured frames
+                if touch.gallery_prev_pressed() and debounced:
+                    if result_frame_idx > 0:
+                        last_touch       = now
+                        result_frame_idx -= 1
+                        result_drawn     = False
+
+                elif touch.gallery_next_pressed() and debounced:
+                    if result_frame_idx < len(result_frames) - 1:
+                        last_touch       = now
+                        result_frame_idx += 1
+                        result_drawn     = False
+
+                elif touch.shutter_pressed() and debounced:
+                    last_touch    = now
+                    state         = _PREVIEW
+                    result        = None
+                    result_frames = []
                     led.on()
 
             # ── SETTINGS ───────────────────────────────────────────────
             elif state == _SETTINGS:
                 if not settings_drawn:
-                    animation.show_settings(cfg["distance_enabled"], settings_status,
-                         poweroff_confirm=_poweroff_confirm)
+                    animation.show_settings(
+                        cfg["distance_enabled"],
+                        settings_status,
+                        poweroff_confirm=_poweroff_confirm,
+                    )
                     settings_drawn = True
 
                 # Back to preview
                 if touch.shutter_pressed() and debounced:
-                    last_touch      = now
-                    settings_status = None
-                    settings_drawn  = False
-                    state           = _PREVIEW
+                    last_touch        = now
+                    settings_status   = None
+                    settings_drawn    = False
                     _poweroff_confirm = False
+                    state             = _PREVIEW
 
                 # Toggle the distance sensor
                 elif touch.touched_at(_TOGGLE_CX, _TOGGLE_CY) and debounced:
@@ -245,11 +280,11 @@ def main() -> None:
                     if cfg["distance_enabled"]:
                         # ── Turn OFF ─────────────────────────────────
                         sensor.shutdown()
-                        sensor_active              = False
-                        cfg["distance_enabled"]    = False
+                        sensor_active           = False
+                        cfg["distance_enabled"] = False
                         settings.save(cfg)
-                        settings_status            = None
-                        settings_drawn             = False
+                        settings_status = None
+                        settings_drawn  = False
                         print("[Settings] Distance sensor disabled")
 
                     else:
@@ -271,8 +306,8 @@ def main() -> None:
                             settings_status         = "no_sensor"
                             print("[Settings] No sensor found")
 
-                        settings_drawn = False   # re-draw with new status
-                
+                        settings_drawn = False
+
                 elif touch.camera_reload_pressed() and debounced:
                     last_touch = now
                     try:
@@ -285,14 +320,13 @@ def main() -> None:
                 elif touch.led_reload_pressed() and debounced:
                     last_touch     = now
                     led.reload()
-                    settings_drawn = False   # redraw to confirm tap registered
-            
+                    settings_drawn = False
+
                 # ── Power off — two-tap confirm ──────────────────────────────
                 elif touch.poweroff_pressed() and debounced:
                     last_touch = now
 
                     if _poweroff_confirm:
-                        # Second tap → clean shutdown
                         animation.show_poweroff()
                         sensor.shutdown()
                         led.off()
@@ -301,20 +335,18 @@ def main() -> None:
                         import subprocess
                         subprocess.run(["sudo", "shutdown", "-h", "now"])
                     else:
-                        # First tap → arm confirm
                         _poweroff_confirm    = True
                         _poweroff_confirm_at = now
                         settings_drawn       = False
 
-                # Reset confirm if user didn't tap again within 5 s
                 if _poweroff_confirm and (now - _poweroff_confirm_at) > 5.0:
                     _poweroff_confirm = False
                     settings_drawn    = False
-            
+
             # ── GALLERY ────────────────────────────────────────────────────
             elif state == _GALLERY:
                 if not gallery_drawn:
-                    animation.show_gallery(gallery_files, gallery_page)
+                    animation.show_gallery(gallery_sessions, gallery_page)
                     gallery_drawn = True
 
                 if touch.shutter_pressed() and debounced:
@@ -327,12 +359,102 @@ def main() -> None:
                     gallery_drawn = False
 
                 elif touch.gallery_next_pressed() and debounced:
-                    per_page     = 9
-                    total_pages  = max(1, (len(gallery_files) + per_page - 1) // per_page)
+                    per_page    = 9
+                    total_pages = max(1, (len(gallery_sessions) + per_page - 1) // per_page)
                     if gallery_page + 1 < total_pages:
                         last_touch    = now
                         gallery_page += 1
                         gallery_drawn = False
+
+                else:
+                    idx = touch.thumbnail_tapped(gallery_page, gallery_sessions)
+                    if idx is not None and debounced:
+                        last_touch            = now
+                        gallery_session_idx   = idx
+                        gallery_frame_idx     = 0
+                        _delete_confirm       = False
+                        gallery_preview_drawn = False
+                        state                 = _GALLERY_PREVIEW
+
+            # ── GALLERY PREVIEW ────────────────────────────────────────────
+            elif state == _GALLERY_PREVIEW:
+                if not gallery_preview_drawn:
+                    animation.show_gallery_preview(
+                        gallery_sessions,
+                        gallery_session_idx,
+                        gallery_frame_idx,
+                        _delete_confirm,
+                    )
+                    gallery_preview_drawn = True
+
+                # Back to grid
+                if touch.shutter_pressed() and debounced:
+                    last_touch            = now
+                    _delete_confirm       = False
+                    gallery_drawn         = False
+                    state                 = _GALLERY
+
+                # Navigate prev: within session first, then last frame of prev session
+                elif touch.gallery_prev_pressed() and debounced:
+                    if gallery_frame_idx > 0:
+                        last_touch            = now
+                        gallery_frame_idx    -= 1
+                        _delete_confirm       = False
+                        gallery_preview_drawn = False
+                    elif gallery_session_idx > 0:
+                        last_touch            = now
+                        gallery_session_idx  -= 1
+                        gallery_frame_idx     = len(gallery_sessions[gallery_session_idx]) - 1
+                        _delete_confirm       = False
+                        gallery_preview_drawn = False
+
+                # Navigate next: within session first, then first frame of next session
+                elif touch.gallery_next_pressed() and debounced:
+                    current_session = gallery_sessions[gallery_session_idx]
+                    if gallery_frame_idx < len(current_session) - 1:
+                        last_touch            = now
+                        gallery_frame_idx    += 1
+                        _delete_confirm       = False
+                        gallery_preview_drawn = False
+                    elif gallery_session_idx < len(gallery_sessions) - 1:
+                        last_touch            = now
+                        gallery_session_idx  += 1
+                        gallery_frame_idx     = 0
+                        _delete_confirm       = False
+                        gallery_preview_drawn = False
+
+                # Delete entire session — two-tap confirm
+                elif touch.gallery_delete_pressed() and debounced:
+                    last_touch = now
+
+                    if _delete_confirm:
+                        session_files = gallery_sessions[gallery_session_idx]
+                        for fp in session_files:
+                            try:
+                                os.remove(fp)
+                                print(f"[Gallery] Deleted {fp}")
+                            except Exception as e:
+                                print(f"[Gallery] Delete failed {fp}: {e}")
+
+                        gallery_sessions = gallery.list_sessions()
+                        _delete_confirm  = False
+                        gallery_drawn    = False
+
+                        # Clamp session index after deletion
+                        if gallery_session_idx >= len(gallery_sessions):
+                            gallery_session_idx = max(0, len(gallery_sessions) - 1)
+                        gallery_frame_idx     = 0
+                        gallery_preview_drawn = False
+                        state                 = _GALLERY
+                    else:
+                        _delete_confirm    = True
+                        _delete_confirm_at = now
+                        gallery_preview_drawn = False
+
+                # Reset confirm after 3 s with no second tap
+                if _delete_confirm and (now - _delete_confirm_at) > 3.0:
+                    _delete_confirm       = False
+                    gallery_preview_drawn = False
 
     except KeyboardInterrupt:
         print("\nExiting")

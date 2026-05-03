@@ -1,7 +1,5 @@
 # src/animation.py
 
-# TODO cleanup animation.py
-
 from PIL import Image, ImageDraw, ImageFont
 from .display import DisplayUI
 from .color import ACCENT, DIM, OK_GREEN, ERR_RED, FG
@@ -17,6 +15,7 @@ def _load_font(font: str, size: int) -> ImageFont.FreeTypeFont:
         return ImageFont.truetype(font, size)
     except OSError:
         return ImageFont.load_default()
+
 
 class Animation:
     def __init__(self, device: DisplayUI):
@@ -43,10 +42,10 @@ class Animation:
         draw.text((cx, cy - 4), "MANOKSENSE", font=font_title, fill=ACCENT, anchor="mm")
         draw.text((cx, cy + 36), "chicken quality classifier", font=font_sub, fill=DIM, anchor="mm")
 
-        self._device.flush(canvas)  
+        self._device.flush(canvas)
 
-    def show_boot_step(self, steps, progress=0.0) -> None:
-        canvas = self._device.blank_canvas()          
+    def show_boot_step(self, steps: list, progress: float = 0.0) -> None:
+        canvas = self._device.blank_canvas()
         draw   = ImageDraw.Draw(canvas)
 
         font_title  = _load_font(FONT_BOLD, 14)
@@ -92,7 +91,7 @@ class Animation:
             if fill_x2 > bar_x1:
                 draw.rounded_rectangle((bar_x1, bar_y, fill_x2, bar_y + bar_h), radius=3, fill=ACCENT)
 
-        self._device.flush(canvas)  
+        self._device.flush(canvas)
 
     def show_ready(self) -> None:
         canvas = self._device.blank_canvas()
@@ -130,7 +129,7 @@ class Animation:
         draw.text((cx, 172), "please wait", font=font_sub, fill=DIM, anchor="mm")
 
         self._device.flush(canvas)
-    
+
     def show_capture_progress(self, current: int, total: int) -> None:
         canvas = self._device.blank_canvas()
         draw   = ImageDraw.Draw(canvas)
@@ -153,10 +152,10 @@ class Animation:
                   font=font_sub, fill=DIM, anchor="mm")
 
         # ── Dot indicators ───────────────────────────────────────────────────
-        dot_r    = 7
-        dot_gap  = 28
-        dot_y    = 195
-        dot_x0   = cx - ((total - 1) * dot_gap) // 2
+        dot_r   = 7
+        dot_gap = 28
+        dot_y   = 195
+        dot_x0  = cx - ((total - 1) * dot_gap) // 2
 
         for i in range(total):
             dot_x  = dot_x0 + i * dot_gap
@@ -178,31 +177,21 @@ class Animation:
 
         self._device.flush(canvas)
 
-    def show_result(
-        self,
-        label:      str,
-        confidence: float,
-        probs:      list[float],
-    ) -> None:
+    def show_result(self, label: str) -> None:
         """
-        Full-screen result view.
+        Simplified result view — big label only, vertically centered.
 
-        Layout (240 wide × 320 tall canvas):
-          y= 18  MANOKSENSE header
-          y= 30  rule
-          y= 88  big class label  (colored)
-          y=122  confidence %
-          y=148  separator rule
-          y=165  probability bars  (3 × 28 px rows)
-          y=298  "tap to scan again" hint
+        Layout (240w × 320h canvas):
+          y= 18   MANOKSENSE header
+          y= 30   rule
+          y=164   big class label (colored, centered in remaining space)
+          y=298   "tap to scan again" hint
         """
         canvas = self._device.blank_canvas()
         draw   = ImageDraw.Draw(canvas)
 
         font_title = _load_font(FONT_BOLD,    14)
-        font_label = _load_font(FONT_BOLD,    30)
-        font_pct   = _load_font(FONT_BOLD,    18)
-        font_bar   = _load_font(FONT_REGULAR, 10)
+        font_label = _load_font(FONT_BOLD,    34)
         font_hint  = _load_font(FONT_REGULAR, 10)
 
         cx = DISPLAY_HEIGHT // 2   # 120
@@ -211,72 +200,91 @@ class Animation:
         draw.text((cx, 18), "MANOKSENSE", font=font_title, fill=ACCENT, anchor="mm")
         draw.line((30, 30, DISPLAY_HEIGHT - 30, 30), fill=DIM, width=1)
 
-        # ── Result colour ────────────────────────────────────────────────
-        color_map = {
+        # ── Result label, vertically centered between rule and hint ─────
+        _LABEL_COLORS = {
             "edible":      OK_GREEN,
-            "adulterated": ACCENT,    # amber = caution
+            "adulterated": ACCENT,
             "spoiled":     ERR_RED,
         }
-        label_color = color_map.get(label, FG)
-
-        # ── Big label + confidence ───────────────────────────────────────
-        draw.text((cx,  88), label.upper(), font=font_label, fill=label_color, anchor="mm")
-        draw.text((cx, 122), f"{confidence * 100:.1f}%", font=font_pct, fill=FG, anchor="mm")
-
-        # ── Separator ────────────────────────────────────────────────────
-        draw.line((20, 148, DISPLAY_HEIGHT - 20, 148), fill=DIM, width=1)
-
-        # ── Probability bars ─────────────────────────────────────────────
-        #   columns:  [label]  [bar──────────────]  [pct]
-        #   x:         30       36 ────────── 196    200
-        BAR_X0   = 36
-        BAR_X1   = 196          # 160 px wide at 100 %
-        BAR_MAX  = BAR_X1 - BAR_X0
-        BAR_H    = 9
-        BAR_BG   = "#252525"
-
-        CLASS_NAMES = ["adulterated", "edible", "spoiled"]
-        bar_colors  = [ACCENT, OK_GREEN, ERR_RED]
-
-        for i, (name, prob, bar_color) in enumerate(
-            zip(CLASS_NAMES, probs, bar_colors)
-        ):
-            row_y      = 165 + i * 28
-            label_text = name[:3].upper()            # ADU / EDI / SPO
-            pct_text   = f"{prob * 100:.0f}%"
-            fill_w     = int(BAR_MAX * prob)
-
-            # Short label, right-aligned into the label column
-            draw.text((30, row_y + BAR_H // 2), label_text,
-                      font=font_bar, fill=DIM, anchor="rm")
-
-            # Background track
-            draw.rounded_rectangle(
-                (BAR_X0, row_y, BAR_X1, row_y + BAR_H),
-                radius=3, fill=BAR_BG,
-            )
-
-            # Filled portion
-            if fill_w > 2:
-                draw.rounded_rectangle(
-                    (BAR_X0, row_y, BAR_X0 + fill_w, row_y + BAR_H),
-                    radius=3, fill=bar_color,
-                )
-
-            # Percentage, left-aligned after bar
-            draw.text((BAR_X1 + 4, row_y + BAR_H // 2), pct_text,
-                      font=font_bar, fill=FG, anchor="lm")
+        label_color = _LABEL_COLORS.get(label, FG)
+        draw.text((cx, 164), label.upper(), font=font_label, fill=label_color, anchor="mm")
 
         # ── Bottom hint ──────────────────────────────────────────────────
         draw.text(
             (cx, DISPLAY_WIDTH - 22),
-            "tap to scan again",
+            "tap \u25cf to scan again",
             font=font_hint, fill=DIM, anchor="mm",
         )
 
         self._device.flush(canvas)
 
-    # settings ui
+    def show_result_with_frame(
+        self,
+        frames:    list,
+        frame_idx: int,
+        label:     str,
+    ) -> None:
+        """
+        Result view with the captured frame shown above the label.
+
+        Layout (240w × 320h canvas):
+          y= 18   MANOKSENSE header
+          y= 30   rule
+          y= 32   captured frame image (fitted to 240×190)
+          y=240   big class label (colored)
+          y=264   frame indicator  "1 / 3"  with < > arrows
+          y=298   "tap ● to scan again" hint
+        """
+        canvas = self._device.blank_canvas()
+        draw   = ImageDraw.Draw(canvas)
+
+        font_title = _load_font(FONT_BOLD,    14)
+        font_label = _load_font(FONT_BOLD,    26)
+        font_small = _load_font(FONT_REGULAR, 10)
+        font_hint  = _load_font(FONT_REGULAR, 10)
+
+        cx = DISPLAY_HEIGHT // 2   # 120
+
+        # ── Header ──────────────────────────────────────────────────────
+        draw.text((cx, 18), "MANOKSENSE", font=font_title, fill=ACCENT, anchor="mm")
+        draw.line((30, 30, DISPLAY_HEIGHT - 30, 30), fill=DIM, width=1)
+
+        # ── Frame image ──────────────────────────────────────────────────
+        IMG_W = DISPLAY_HEIGHT   # 240
+        IMG_H = 190
+        IMG_Y = 34
+
+        try:
+            img = frames[0].copy().convert("RGB")
+            img.thumbnail((IMG_W, IMG_H), Image.LANCZOS)
+            ox = (IMG_W - img.width)  // 2
+            oy = IMG_Y + (IMG_H - img.height) // 2
+            canvas.paste(img, (ox, oy))
+        except Exception:
+            draw.rectangle((0, IMG_Y, IMG_W, IMG_Y + IMG_H), fill="#1A1A1A")
+
+        # ── Label ────────────────────────────────────────────────────────
+        _LABEL_COLORS = {
+            "edible":      OK_GREEN,
+            "adulterated": ACCENT,
+            "spoiled":     ERR_RED,
+        }
+        label_color = _LABEL_COLORS.get(label, FG)
+        draw.text((cx, 240), label.upper(), font=font_label, fill=label_color, anchor="mm")
+
+        # ── Bottom hint ──────────────────────────────────────────────────
+        draw.text(
+            (cx, DISPLAY_WIDTH - 22),
+            "tap \u25cf to scan again",
+            font=font_hint, fill=DIM, anchor="mm",
+        )
+
+        self._device.flush(canvas)
+
+    # ------------------------------------------------------------------ #
+    #  Settings UI                                                         #
+    # ------------------------------------------------------------------ #
+
     def show_settings(
         self,
         distance_enabled: bool,
@@ -312,9 +320,9 @@ class Animation:
 
         font_title   = _load_font(FONT_BOLD,    14)
         font_sub     = _load_font(FONT_BOLD,    13)
-        font_section = _load_font(FONT_BOLD,    9)
+        font_section = _load_font(FONT_BOLD,     9)
         font_label   = _load_font(FONT_REGULAR, 12)
-        font_btn     = _load_font(FONT_REGULAR, 9)
+        font_btn     = _load_font(FONT_REGULAR,  9)
         font_status  = _load_font(FONT_REGULAR, 10)
         font_hint    = _load_font(FONT_REGULAR, 10)
 
@@ -370,8 +378,7 @@ class Animation:
         # ════════════════════════════════════════════════════════════════
         #  SYSTEM section
         # ════════════════════════════════════════════════════════════════
-        draw.rectangle((0, 136, DISPLAY_HEIGHT, 152), fill="#151515")
-        draw.text((20, 144), "SYSTEM", font=font_section, fill=DIM, anchor="lm")
+        draw.text((20, 136), "SYSTEM", font=font_section, fill=DIM, anchor="lm")
 
         BTN_CX = 189
         BTN_W  = 40
@@ -423,17 +430,21 @@ class Animation:
 
         self._device.flush(canvas)
 
-    # gallery ui
-    def show_gallery(self, files: list[str], page: int) -> None:
+    # ------------------------------------------------------------------ #
+    #  Gallery UI                                                          #
+    # ------------------------------------------------------------------ #
+
+    def show_gallery(self, sessions: list[list[str]], page: int) -> None:
         """
         Layout (240w × 320h canvas):
           y=18   header
           y=30   rule
-          y=48   "Gallery" + count
+          y=48   "Gallery" + session count
           y=62   separator
-          y=68   3×3 thumbnail grid  (72×72 each, 2px gap)
-          y=285  prev ←   N/M   next →
-          y=298  hint
+          y=56   3×3 thumbnail grid  (72×72 each, 4px gap)
+                 One thumbnail per session — uses first frame as representative.
+          y=290  prev ←   N/M   next →
+          y=306  hint
         """
         import src.gallery as gallery
 
@@ -448,49 +459,50 @@ class Animation:
         cx = DISPLAY_HEIGHT // 2   # 120
 
         # ── Header ──────────────────────────────────────────────────────
-        draw.text((cx, 18), "MANOKSENSE", font=font_title, fill=ACCENT, anchor="mm")
-        draw.line((30, 30, DISPLAY_HEIGHT - 30, 30), fill=DIM, width=1)
+        draw.text((cx, 16), "MANOKSENSE", font=font_title, fill=ACCENT, anchor="mm")
+        draw.line((30, 26, DISPLAY_HEIGHT - 30, 26), fill=DIM, width=1)
 
-        total = len(files)
-        draw.text((cx, 48), f"Gallery  ({total})",
+        total = len(sessions)
+        draw.text((cx, 38), f"Gallery  ({total})",
                   font=font_sub, fill=FG, anchor="mm")
-        draw.line((20, 62, DISPLAY_HEIGHT - 20, 62), fill=DIM, width=1)
+        draw.line((20, 50, DISPLAY_HEIGHT - 20, 50), fill=DIM, width=1)
 
         # ── Empty state ──────────────────────────────────────────────────
         if total == 0:
             draw.text((cx, 160), "No captures yet",
                       font=font_sub, fill=DIM, anchor="mm")
-            draw.text((cx, DISPLAY_WIDTH - 22), "tap ● to go back",
+            draw.text((cx, DISPLAY_WIDTH - 22), "tap \u25cf to go back",
                       font=font_hint, fill=DIM, anchor="mm")
             self._device.flush(canvas)
             return
 
         # ── Grid ─────────────────────────────────────────────────────────
-        PER_PAGE  = 9
-        COLS      = 3
-        THUMB_W   = 72
-        THUMB_H   = 72
-        GAP_X     = 4
-        GAP_Y     = 4
-        START_X   = (DISPLAY_HEIGHT - COLS * THUMB_W - (COLS - 1) * GAP_X) // 2   # 4
-        START_Y   = 68
+        PER_PAGE = 9
+        COLS     = 3
+        THUMB_W  = 72
+        THUMB_H  = 72
+        GAP_X    = 4
+        GAP_Y    = 4
+        START_X  = 4
+        START_Y  = 56
 
-        start_idx = page * PER_PAGE
-        page_files = files[start_idx : start_idx + PER_PAGE]
+        start_idx    = page * PER_PAGE
+        page_sessions = sessions[start_idx : start_idx + PER_PAGE]
 
-        for i, filepath in enumerate(page_files):
+        for i, session in enumerate(page_sessions):
             col = i % COLS
             row = i // COLS
             x   = START_X + col * (THUMB_W + GAP_X)
             y   = START_Y + row * (THUMB_H + GAP_Y)
 
-            thumb = gallery.make_thumbnail(filepath)
+            # Use first frame as the representative thumbnail
+            thumb = gallery.make_thumbnail(session[0])
             canvas.paste(thumb, (x, y))
 
             # Label color dot — bottom-left corner
-            label  = gallery.get_label_from_filename(filepath)
-            color  = gallery.LABEL_COLORS.get(label, "#555555")
-            dot_r  = 5
+            label = gallery.get_label_from_filename(session[0])
+            color = gallery.LABEL_COLORS.get(label, "#555555")
+            dot_r = 5
             draw.ellipse(
                 (x + 4, y + THUMB_H - dot_r * 2 - 4,
                  x + 4 + dot_r * 2, y + THUMB_H - 4),
@@ -499,7 +511,7 @@ class Animation:
 
         # ── Pagination ────────────────────────────────────────────────────
         total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
-        NAV_Y = 285
+        NAV_Y = 290
 
         if page > 0:
             draw.text((30, NAV_Y), "< PREV",
@@ -512,12 +524,111 @@ class Animation:
             draw.text((210, NAV_Y), "NEXT >",
                       font=font_nav, fill=ACCENT, anchor="mm")
 
-        draw.text((cx, DISPLAY_WIDTH - 22), "tap ● to go back",
+        draw.text((cx, DISPLAY_WIDTH - 14), "tap \u25cf to go back",
                   font=font_hint, fill=DIM, anchor="mm")
 
         self._device.flush(canvas)
 
-    # poweroff screen
+    def show_gallery_preview(
+        self,
+        sessions:      list[list[str]],
+        session_idx:   int,
+        frame_idx:     int,
+        delete_confirm: bool = False,
+    ) -> None:
+        """
+        Layout (240w × 320h canvas):
+          y= 18   header
+          y= 30   rule
+          y= 32   full image (fitted to 240×195)
+          y=242   "Scan N / M"  session indicator (DIM, small)
+          y=254   "1 / 3"       frame indicator   (DIM, small) with < > arrows
+          y=267   DELETE button
+          y=285   < PREV                    NEXT >
+          y=306   "tap ● to go back" hint
+        """
+        import src.gallery as gallery
+
+        canvas = self._device.blank_canvas()
+        draw   = ImageDraw.Draw(canvas)
+
+        font_title = _load_font(FONT_BOLD,    14)
+        font_nav   = _load_font(FONT_BOLD,    12)
+        font_btn   = _load_font(FONT_REGULAR,  9)
+        font_hint  = _load_font(FONT_REGULAR, 10)
+        font_idx   = _load_font(FONT_REGULAR, 10)
+
+        cx = DISPLAY_HEIGHT // 2   # 120
+
+        session       = sessions[session_idx]
+        total_sessions = len(sessions)
+        total_frames   = len(session)
+
+        # ── Header ──────────────────────────────────────────────────────
+        draw.text((cx, 18), "MANOKSENSE", font=font_title, fill=ACCENT, anchor="mm")
+        draw.line((30, 30, DISPLAY_HEIGHT - 30, 30), fill=DIM, width=1)
+
+        # ── Full image ───────────────────────────────────────────────────
+        IMG_W = DISPLAY_HEIGHT   # 240
+        IMG_H = 195
+        IMG_Y = 32
+
+        try:
+            img = Image.open(session[frame_idx]).convert("RGB")
+            img.thumbnail((IMG_W, IMG_H), Image.LANCZOS)
+            ox = (IMG_W - img.width)  // 2
+            oy = IMG_Y + (IMG_H - img.height) // 2
+            canvas.paste(img, (ox, oy))
+        except Exception:
+            draw.rectangle((0, IMG_Y, IMG_W, IMG_Y + IMG_H), fill="#1A1A1A")
+            draw.text((cx, IMG_Y + IMG_H // 2), "Error loading image",
+                      font=font_hint, fill=DIM, anchor="mm")
+
+        # ── Session indicator ────────────────────────────────────────────
+        draw.text((cx, 273), f"Scan {session_idx + 1} / {total_sessions}",
+                  font=font_idx, fill=DIM, anchor="mm")
+
+        # ── Frame indicator with arrows ──────────────────────────────────
+        draw.text((cx, 285), f"{frame_idx + 1} / {total_frames}",
+                  font=font_idx, fill=DIM, anchor="mm")
+
+        # Arrow visibility: prev if any earlier frame/session; next if any later
+        _has_prev = frame_idx > 0 or session_idx > 0
+        _has_next = (frame_idx < total_frames - 1) or (session_idx < total_sessions - 1)
+
+        if _has_prev:
+            draw.text((14, 285), "< PREV", font=font_nav, fill=ACCENT, anchor="lm")
+        if _has_next:
+            draw.text((DISPLAY_HEIGHT - 14, 285), "NEXT >", font=font_nav, fill=ACCENT, anchor="rm")
+
+        # ── Delete button ────────────────────────────────────────────────
+        DEL_CX = 120
+        DEL_Y  = 230
+        DEL_W  = 44
+        DEL_H  = 11
+
+        pill_fill  = ERR_RED   if delete_confirm else "#3A1A1A"
+        del_text   = "CONFIRM?" if delete_confirm else "DELETE"
+        del_col    = FG        if delete_confirm else ERR_RED
+
+        draw.rounded_rectangle(
+            (DEL_CX - DEL_W, DEL_Y - DEL_H,
+             DEL_CX + DEL_W, DEL_Y + DEL_H),
+            radius=DEL_H, fill=pill_fill, outline=ERR_RED, width=1,
+        )
+        draw.text((DEL_CX, DEL_Y), del_text,
+                  font=font_btn, fill=del_col, anchor="mm")
+
+        # ── Bottom hint ──────────────────────────────────────────────────
+        draw.text((cx, DISPLAY_WIDTH - 14), "tap \u25cf to go back",
+                  font=font_hint, fill=DIM, anchor="mm")
+
+        self._device.flush(canvas)
+
+    # ------------------------------------------------------------------ #
+    #  Power-off screen                                                    #
+    # ------------------------------------------------------------------ #
+
     def show_poweroff(self) -> None:
         canvas = self._device.blank_canvas()
         draw   = ImageDraw.Draw(canvas)
