@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MANOKSENSE — Illustrated User Manual (Light)</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --amber: #B8890A; --green: #1A8A42; --red: #C02828;
+    --dim: #8A8880; --fg: #1C1A16; --bg: #F7F5EF;
+    --bg2: #EDEBE5; --bg3: #E3E1DB; --border: #D0CEC8;
+    --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
+  }
+  html { background: var(--bg); }
+  body { font-family: var(--sans); background: var(--bg); color: var(--fg); max-width: 780px; margin: 0 auto; padding: 0; line-height: 1.6; }
+  .cover { padding: 52px 48px 44px; border-bottom: 1px solid var(--border); display: flex; gap: 36px; align-items: center; position: relative; }
+  .cover-left { flex: 1; }
+  .cover::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 3px; background: var(--amber); }
+  .eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; color: var(--dim); text-transform: uppercase; margin-bottom: 24px; }
+  .cover-title { font-family: var(--mono); font-size: 48px; font-weight: 600; color: var(--amber); line-height: 1; margin-bottom: 8px; }
+  .cover-sub { font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 28px; }
+  .cover-desc { font-size: 14px; font-weight: 300; color: #666; line-height: 1.8; margin-bottom: 28px; max-width: 380px; }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; padding: 4px 10px; border: 1px solid var(--border); color: var(--dim); }
+  .badge.hi { border-color: var(--amber); color: var(--amber); }
+  .device-frame { border: 1.5px solid #BEBCB6; border-radius: 10px; overflow: hidden; display: block; background: #F5F3EE; flex-shrink: 0; box-shadow: 0 3px 12px rgba(0,0,0,0.09); }
+  .device-frame svg { display: block; width: 100%; height: auto; }
+  .device-frame.sz-xs { width: 110px; }
+  .device-frame.sz-sm { width: 140px; }
+  .device-frame.sz-md { width: 168px; }
+  .device-frame.sz-lg { width: 200px; }
+  .screen-cap { font-family: var(--mono); font-size: 10px; color: var(--dim); text-align: center; margin-top: 8px; letter-spacing: 0.08em; }
+  .content { padding: 0 48px; }
+  .section { border-bottom: 1px solid var(--border); padding: 40px 0; }
+  .section:last-child { border-bottom: none; }
+  .sec-label { font-family: var(--mono); font-size: 9px; letter-spacing: 0.2em; color: var(--dim); text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+  .sec-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .sec-title { font-family: var(--mono); font-size: 18px; font-weight: 500; color: var(--fg); margin-bottom: 22px; }
+  .sec-body { font-size: 14px; font-weight: 300; color: var(--dim); line-height: 1.8; max-width: 540px; }
+  .glance-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .glance-item { display: flex; flex-direction: column; align-items: center; }
+  .step-row { display: grid; grid-template-columns: 1fr auto; gap: 28px; align-items: start; padding: 26px 0; border-bottom: 1px solid var(--border); }
+  .step-row:last-child { border-bottom: none; }
+  .step-row.no-screen { grid-template-columns: 1fr; }
+  .step-tag { font-family: var(--mono); font-size: 10px; color: var(--amber); border: 1px solid var(--amber); padding: 4px 10px; display: inline-block; margin-bottom: 10px; }
+  .step-title { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--fg); margin-bottom: 8px; }
+  .step-text { font-size: 13px; font-weight: 300; color: #555; line-height: 1.8; }
+  .step-note { margin-top: 10px; font-family: var(--mono); font-size: 10px; color: var(--dim); background: var(--bg2); border-left: 2px solid var(--amber); padding: 6px 10px; display: inline-block; }
+  .step-screen { display: flex; flex-direction: column; align-items: center; }
+  .results-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); }
+  .result-card { background: var(--bg2); padding: 20px 18px; }
+  .result-dot { width: 8px; height: 8px; border-radius: 50%; margin-bottom: 12px; }
+  .result-dot.g { background: #1A8A42; } .result-dot.a { background: #B8890A; } .result-dot.r { background: #C02828; }
+  .result-label { font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .result-label.g { color: var(--green); } .result-label.a { color: var(--amber); } .result-label.r { color: var(--red); }
+  .result-desc { font-size: 12px; font-weight: 300; color: #555; line-height: 1.7; }
+  .result-led { margin-top: 12px; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .dual-screen { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 8px; }
+  .dual-item { display: flex; flex-direction: column; gap: 14px; }
+  .dual-item .device-frame { align-self: center; }
+  .dual-label { font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--fg); margin-bottom: 6px; }
+  .dual-text { font-size: 12px; font-weight: 300; color: var(--dim); line-height: 1.75; }
+  .tips { display: flex; flex-direction: column; gap: 1px; background: var(--border); border: 1px solid var(--border); margin-top: 8px; }
+  .tip { background: var(--bg2); padding: 12px 16px; display: flex; gap: 12px; align-items: baseline; }
+  .tip-mark { font-family: var(--mono); font-size: 10px; color: var(--amber); flex-shrink: 0; width: 14px; }
+  .tip-text { font-size: 13px; font-weight: 300; color: #555; line-height: 1.65; }
+  .specs-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-family: var(--mono); font-size: 12px; }
+  .specs-table tr { border-bottom: 1px solid var(--border); }
+  .specs-table tr:last-child { border-bottom: none; }
+  .specs-table td { padding: 10px 0; vertical-align: top; }
+  .specs-table td:first-child { color: var(--dim); width: 200px; }
+  .specs-table td:last-child { color: var(--fg); }
+  .footer { padding: 26px 48px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--bg2); }
+  .footer-brand { font-family: var(--mono); font-size: 12px; color: var(--amber); font-weight: 600; }
+  .footer-meta { font-family: var(--mono); font-size: 10px; color: var(--dim); text-align: right; letter-spacing: 0.06em; }
+  .callout { margin-top: 14px; padding: 12px 16px; background: var(--bg2); border-left: 2px solid var(--border); font-size: 12px; font-weight: 300; color: var(--dim); line-height: 1.7; }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-left">
+    <div class="eyebrow">Quick-Start User Manual &nbsp;·&nbsp; v1.0</div>
+    <div class="cover-title">MANOK<br>SENSE</div>
+    <div class="cover-sub">Chicken Quality Classifier</div>
+    <p class="cover-desc">A portable, AI-powered device that captures photos of chicken meat and instantly classifies freshness — edible, spoiled, or adulterated — using an on-device machine learning model.</p>
+    <div class="badges">
+      <span class="badge hi">EfficientNetB2</span>
+      <span class="badge hi">On-device AI</span>
+      <span class="badge">Raspberry Pi</span>
+      <span class="badge">Touch Screen</span>
+    </div>
+  </div>
+  <div class="device-frame sz-md">
+    <svg viewBox="0 0 240 320" xmlns="http://www.w3.org/2000/svg">
+      <rect width="240" height="320" fill="#F5F3EE"/>
+      <rect width="240" height="50" fill="#EAE8E2"/>
+      <text x="120" y="20" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#B8890A">MANOKSENSE</text>
+      <line x1="25" y1="31" x2="215" y2="31" stroke="#C8C6C0" stroke-width="0.5"/>
+      <rect x="16" y="14" width="7" height="7" rx="1" fill="#AAAAAA"/>
+      <rect x="25" y="14" width="7" height="7" rx="1" fill="#AAAAAA"/>
+      <rect x="16" y="23" width="7" height="7" rx="1" fill="#AAAAAA"/>
+      <rect x="25" y="23" width="7" height="7" rx="1" fill="#AAAAAA"/>
+      <circle cx="216" cy="22" r="8" fill="none" stroke="#AAAAAA" stroke-width="3.5"/>
+      <circle cx="216" cy="22" r="3" fill="#AAAAAA"/>
+      <rect x="0" y="50" width="240" height="180" fill="#DDD9CF"/>
+      <ellipse cx="120" cy="148" rx="88" ry="65" fill="#C8B898"/>
+      <ellipse cx="95"  cy="132" rx="55" ry="40" fill="#BDA882"/>
+      <ellipse cx="148" cy="158" rx="48" ry="35" fill="#C4AC8A"/>
+      <ellipse cx="132" cy="118" rx="36" ry="26" fill="#D2C0A4"/>
+      <ellipse cx="88"  cy="162" rx="32" ry="22" fill="#C0A87E"/>
+      <ellipse cx="108" cy="125" rx="18" ry="10" fill="#CAB490"/>
+      <rect x="48" y="68" width="144" height="144" fill="none" stroke="#1A8A42" stroke-width="2"/>
+      <rect x="0" y="230" width="240" height="90" fill="#EFEDE7"/>
+      <circle cx="120" cy="272" r="24" fill="none" stroke="#444444" stroke-width="2.5"/>
+    </svg>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- 01: AT A GLANCE -->
+  <div class="section">
+    <div class="sec-label">01 &nbsp; Overview</div>
+    <div class="sec-title">The device at a glance</div>
+    <p class="sec-body" style="margin-bottom:24px;">The device walks you through four main screens during a scan: the live preview, the capture progress indicator, the analysis screen, and finally the classification result. Tap the gear icon (⚙) to access Settings, or the grid icon (⊞) to open the Gallery at any time from the home screen.</p>
+    <div class="glance-grid">
+
+      <div class="glance-item">
+        <div class="device-frame sz-xs">
+          <svg viewBox="0 0 240 320" xmlns="http://www.w3.org/2000/svg">
+            <rect width="240" height="320" fill="#F5F3EE"/>
+            <rect width="240" height="50" fill="#EAE8E2"/>
+            <text x="120" y="20" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#B8890A">MANOKSENSE</text>
+            <line x1="25" y1="31" x2="215" y2="31" stroke="#C8C6C0" stroke-width="0.5"/>
+            <rect x="16" y="14" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="25" y="14" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="16" y="23" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="25" y="23" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <circle cx="216" cy="22" r="8" fill="none" stroke="#AAAAAA" stroke-width="3.5"/>
+            <circle cx="216" cy="22" r="3" fill="#AAAAAA"/>
+            <rect x="0" y="50" width="240" height="180" fill="#DDD9CF"/>
+            <ellipse cx="120" cy="148" rx="88" ry="65" fill="#C8B898"/>
+            <ellipse cx="95"  cy="132" rx="55" ry="40" fill="#BDA882"/>
+            <ellipse cx="148" cy="158" rx="48" ry="35" fill="#C4AC8A"/>
+            <rect x="48" y="68" width="144" height="144" fill="none" stroke="#1A8A42" stroke-width="2"/>
+            <rect x="0" y="230" width="240" height="90" fill="#EFEDE7"/>
+            <circle cx="120" cy="272" r="24" fill="none" stroke="#444444" stroke-width="2.5"/>
+          </svg>
+        </div>
+        <div class="screen-cap">Home</div>
+      </div>
+
+      <div class="glance-item">
+        <div class="device-frame sz-xs">
+          <svg viewBox="0 0 240 320" xmlns="http://www.w3.org/2000/svg">
+            <rect width="240" height="320" fill="#F5F3EE"/>
+            <rect width="240" height="50" fill="#EAE8E2"/>
+            <text x="120" y="20" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#B8890A">MANOKSENSE</text>
+            <line x1="25" y1="31" x2="215" y2="31" stroke="#C8C6C0" stroke-width="0.5"/>
+            <rect x="16" y="14" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="25" y="14" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="16" y="23" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="25" y="23" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <circle cx="216" cy="22" r="8" fill="none" stroke="#AAAAAA" stroke-width="3.5"/>
+            <circle cx="216" cy="22" r="3" fill="#AAAAAA"/>
+            <text x="120" y="125" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="24" font-weight="600" fill="#1C1A16">Photo 2/3</text>
+            <text x="120" y="155" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="13" fill="#8A8880">hold steady...</text>
+            <circle cx="92"  cy="202" r="8" fill="#B8890A"/>
+            <circle cx="120" cy="202" r="8" fill="#B8890A"/>
+            <circle cx="148" cy="202" r="8" fill="none" stroke="#C8C6C0" stroke-width="2"/>
+            <text x="120" y="302" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#C8C6C0">capturing sample...</text>
+          </svg>
+        </div>
+        <div class="screen-cap">Capturing</div>
+      </div>
+
+      <div class="glance-item">
+        <div class="device-frame sz-xs">
+          <svg viewBox="0 0 240 320" xmlns="http://www.w3.org/2000/svg">
+            <rect width="240" height="320" fill="#F5F3EE"/>
+            <rect width="240" height="50" fill="#EAE8E2"/>
+            <text x="120" y="20" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#B8890A">MANOKSENSE</text>
+            <line x1="25" y1="31" x2="215" y2="31" stroke="#C8C6C0" stroke-width="0.5"/>
+            <rect x="16" y="14" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="25" y="14" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="16" y="23" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="25" y="23" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <circle cx="216" cy="22" r="8" fill="none" stroke="#AAAAAA" stroke-width="3.5"/>
+            <circle cx="216" cy="22" r="3" fill="#AAAAAA"/>
+            <text x="120" y="148" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="20" font-weight="600" fill="#1C1A16">Analyzing...</text>
+            <text x="120" y="172" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="13" fill="#8A8880">please wait</text>
+            <circle cx="100" cy="215" r="5" fill="#DDDBD5"/>
+            <circle cx="120" cy="215" r="5" fill="#C8C6C0"/>
+            <circle cx="140" cy="215" r="5" fill="#B8890A"/>
+          </svg>
+        </div>
+        <div class="screen-cap">Processing</div>
+      </div>
+
+      <div class="glance-item">
+        <div class="device-frame sz-xs">
+          <svg viewBox="0 0 240 320" xmlns="http://www.w3.org/2000/svg">
+            <rect width="240" height="320" fill="#F5F3EE"/>
+            <rect x="0" y="34" width="240" height="190" fill="#DDD9CF"/>
+            <ellipse cx="120" cy="135" rx="85" ry="62" fill="#C8B898"/>
+            <ellipse cx="92"  cy="118" rx="52" ry="38" fill="#BDA882"/>
+            <ellipse cx="148" cy="148" rx="46" ry="32" fill="#C4AC8A"/>
+            <rect x="0" y="198" width="240" height="26" fill="#E8F4EC"/>
+            <text x="10" y="216" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#1A8A42">EDIBLE</text>
+            <rect width="240" height="34" fill="#EAE8E2"/>
+            <text x="120" y="20" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#B8890A">MANOKSENSE</text>
+            <text x="120" y="246" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="22" font-weight="600" fill="#1A8A42">EDIBLE</text>
+            <text x="120" y="302" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#C8C6C0">tap ◉ to scan again</text>
+          </svg>
+        </div>
+        <div class="screen-cap">Result</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 02: HOW TO USE -->
+  <div class="section">
+    <div class="sec-label">02 &nbsp; Operation</div>
+    <div class="sec-title">Step-by-step guide</div>
+
+    <div class="step-row no-screen">
+      <div>
+        <span class="step-tag">STEP 01</span>
+        <div class="step-title">Power on the device</div>
+        <p class="step-text">Connect the Raspberry Pi to power. The boot screen shows each component initializing — LED, camera, touch, and model — with a progress bar. The display will briefly show "Ready." before switching to the live camera preview. Wait for the preview to appear before scanning.</p>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div>
+        <span class="step-tag">STEP 02</span>
+        <div class="step-title">Frame the chicken sample</div>
+        <p class="step-text">Place the chicken under the camera. The live preview fills the center of the screen. Aim to keep the meat inside the green viewfinder box. The shutter button (circle) sits at the bottom of the screen.<br><br>The gear icon (top-right) opens Settings. The grid icon (top-left) opens the Gallery. If the distance sensor is enabled, the status text will appear in the header.</p>
+        <div class="step-note">Green viewfinder = sample is in range and ready</div>
+      </div>
+      <div class="step-screen">
+        <div class="device-frame sz-md">
+          <svg viewBox="0 0 240 320" xmlns="http://www.w3.org/2000/svg">
+            <rect width="240" height="320" fill="#F5F3EE"/>
+            <rect width="240" height="50" fill="#EAE8E2"/>
+            <text x="120" y="20" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#B8890A">MANOKSENSE</text>
+            <line x1="25" y1="31" x2="215" y2="31" stroke="#C8C6C0" stroke-width="0.5"/>
+            <rect x="16" y="14" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="25" y="14" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="16" y="23" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="25" y="23" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <circle cx="216" cy="22" r="8" fill="none" stroke="#AAAAAA" stroke-width="3.5"/>
+            <circle cx="216" cy="22" r="3" fill="#AAAAAA"/>
+            <rect x="0" y="50" width="240" height="180" fill="#DDD9CF"/>
+            <ellipse cx="120" cy="148" rx="88" ry="65" fill="#C8B898"/>
+            <ellipse cx="95"  cy="132" rx="55" ry="40" fill="#BDA882"/>
+            <ellipse cx="148" cy="158" rx="48" ry="35" fill="#C4AC8A"/>
+            <ellipse cx="132" cy="118" rx="36" ry="26" fill="#D2C0A4"/>
+            <ellipse cx="88"  cy="162" rx="32" ry="22" fill="#C0A87E"/>
+            <ellipse cx="108" cy="125" rx="18" ry="10" fill="#CAB490"/>
+            <rect x="48" y="68" width="144" height="144" fill="none" stroke="#1A8A42" stroke-width="2"/>
+            <text x="194" y="67" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#1A8A42">← viewfinder</text>
+            <rect x="0" y="230" width="240" height="90" fill="#EFEDE7"/>
+            <circle cx="120" cy="272" r="24" fill="none" stroke="#444444" stroke-width="2.5"/>
+            <text x="120" y="310" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#AAAAAA">shutter button</text>
+          </svg>
+        </div>
+        <div class="screen-cap">Home screen</div>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div>
+        <span class="step-tag">STEP 03</span>
+        <div class="step-title">Tap shutter 3 times to capture</div>
+        <p class="step-text">After tapping the shutter, the device captures a photo and shows the capture progress screen. A counter shows how many photos have been taken. Tap the shutter again to take the next photo.<br><br>Three filled amber dots indicate all photos are captured. The device moves automatically to the analysis step after the third photo.</p>
+        <div class="step-note">Hold steady between taps — 2 s debounce between captures</div>
+      </div>
+      <div class="step-screen">
+        <div class="device-frame sz-md">
+          <svg viewBox="0 0 240 320" xmlns="http://www.w3.org/2000/svg">
+            <rect width="240" height="320" fill="#F5F3EE"/>
+            <rect width="240" height="50" fill="#EAE8E2"/>
+            <text x="120" y="20" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#B8890A">MANOKSENSE</text>
+            <line x1="25" y1="31" x2="215" y2="31" stroke="#C8C6C0" stroke-width="0.5"/>
+            <rect x="16" y="14" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="25" y="14" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="16" y="23" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="25" y="23" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <circle cx="216" cy="22" r="8" fill="none" stroke="#AAAAAA" stroke-width="3.5"/>
+            <circle cx="216" cy="22" r="3" fill="#AAAAAA"/>
+            <text x="120" y="122" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="26" font-weight="600" fill="#1C1A16">Photo 2 / 3</text>
+            <text x="120" y="155" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="13" fill="#8A8880">hold steady...</text>
+            <circle cx="92"  cy="202" r="8" fill="#B8890A"/>
+            <circle cx="120" cy="202" r="8" fill="#B8890A"/>
+            <circle cx="148" cy="202" r="8" fill="none" stroke="#C8C6C0" stroke-width="2"/>
+            <text x="92"  y="220" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8" fill="#B8890A">1</text>
+            <text x="120" y="220" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8" fill="#B8890A">2</text>
+            <text x="148" y="220" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8" fill="#C8C6C0">3</text>
+            <text x="120" y="302" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#C8C6C0">capturing sample...</text>
+          </svg>
+        </div>
+        <div class="screen-cap">Capture progress</div>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div>
+        <span class="step-tag">STEP 04</span>
+        <div class="step-title">Wait while the model analyzes</div>
+        <p class="step-text">After the third photo, the device automatically enters the analysis phase. The "Analyzing…" screen appears while the AI model runs inference on all three frames and averages the predictions. This typically takes a few seconds. Do not move the device during this step.</p>
+      </div>
+      <div class="step-screen">
+        <div class="device-frame sz-md">
+          <svg viewBox="0 0 240 320" xmlns="http://www.w3.org/2000/svg">
+            <rect width="240" height="320" fill="#F5F3EE"/>
+            <rect width="240" height="50" fill="#EAE8E2"/>
+            <text x="120" y="20" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#B8890A">MANOKSENSE</text>
+            <line x1="25" y1="31" x2="215" y2="31" stroke="#C8C6C0" stroke-width="0.5"/>
+            <rect x="16" y="14" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="25" y="14" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="16" y="23" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="25" y="23" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <circle cx="216" cy="22" r="8" fill="none" stroke="#AAAAAA" stroke-width="3.5"/>
+            <circle cx="216" cy="22" r="3" fill="#AAAAAA"/>
+            <text x="120" y="148" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="22" font-weight="600" fill="#1C1A16">Analyzing...</text>
+            <text x="120" y="174" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="13" fill="#8A8880">please wait</text>
+            <circle cx="100" cy="218" r="5" fill="#DDDBD5"/>
+            <circle cx="120" cy="218" r="5" fill="#C8C6C0"/>
+            <circle cx="140" cy="218" r="5" fill="#B8890A"/>
+          </svg>
+        </div>
+        <div class="screen-cap">Processing</div>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div>
+        <span class="step-tag">STEP 05</span>
+        <div class="step-title">Read the classification result</div>
+        <p class="step-text">The result screen shows the captured image above a large colored result label — green for edible, amber for adulterated, red for spoiled. The LED strip on the device glows in the same color.<br><br>Use the left/right arrows to navigate through all three captured frames. The session is automatically saved to the Gallery. Tap the shutter button to return to the home screen for a new scan.</p>
+      </div>
+      <div class="step-screen">
+        <div class="device-frame sz-md">
+          <svg viewBox="0 0 240 320" xmlns="http://www.w3.org/2000/svg">
+            <rect width="240" height="320" fill="#F5F3EE"/>
+            <rect x="0" y="34" width="240" height="190" fill="#DDD9CF"/>
+            <ellipse cx="120" cy="135" rx="85" ry="62" fill="#C8B898"/>
+            <ellipse cx="92"  cy="118" rx="52" ry="38" fill="#BDA882"/>
+            <ellipse cx="148" cy="148" rx="46" ry="32" fill="#C4AC8A"/>
+            <ellipse cx="130" cy="110" rx="30" ry="22" fill="#D2C0A4"/>
+            <rect x="0" y="198" width="240" height="26" fill="#E8F4EC"/>
+            <text x="10" y="216" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#1A8A42">EDIBLE</text>
+            <rect width="240" height="34" fill="#EAE8E2"/>
+            <text x="120" y="20" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#B8890A">MANOKSENSE</text>
+            <line x1="25" y1="31" x2="215" y2="31" stroke="#C8C6C0" stroke-width="0.5"/>
+            <text x="120" y="246" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="24" font-weight="600" fill="#1A8A42">EDIBLE</text>
+            <text x="18"  y="268" font-family="'IBM Plex Mono',monospace" font-size="12" fill="#AAAAAA">← PREV</text>
+            <text x="120" y="268" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="12" fill="#AAAAAA">1 / 3</text>
+            <text x="222" y="268" text-anchor="end" font-family="'IBM Plex Mono',monospace" font-size="12" fill="#AAAAAA">NEXT →</text>
+            <text x="120" y="302" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#C8C6C0">tap ◉ to scan again</text>
+          </svg>
+        </div>
+        <div class="screen-cap">Result screen</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 03: RESULTS -->
+  <div class="section">
+    <div class="sec-label">03 &nbsp; Classification</div>
+    <div class="sec-title">Understanding the results</div>
+    <div class="results-grid">
+      <div class="result-card">
+        <div class="result-dot g"></div>
+        <div class="result-label g">EDIBLE</div>
+        <div class="result-desc">The chicken appears fresh and suitable for consumption based on visual analysis. Requires ≥ 55% model confidence.</div>
+        <div class="result-led">LED → bright green</div>
+      </div>
+      <div class="result-card">
+        <div class="result-dot a"></div>
+        <div class="result-label a">ADULTERATED</div>
+        <div class="result-desc">Visual signs suggest the meat may have been mixed with non-chicken material or tampered with. Do not consume.</div>
+        <div class="result-led">LED → amber</div>
+      </div>
+      <div class="result-card">
+        <div class="result-dot r"></div>
+        <div class="result-label r">SPOILED</div>
+        <div class="result-desc">The chicken shows visible signs of spoilage. Dispose of properly. Do not consume under any circumstances.</div>
+        <div class="result-led">LED → red</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:20px;">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <div class="device-frame sz-xs">
+          <svg viewBox="0 0 240 320" xmlns="http://www.w3.org/2000/svg">
+            <rect width="240" height="320" fill="#F5F3EE"/>
+            <rect x="0" y="34" width="240" height="190" fill="#DDD9CF"/>
+            <ellipse cx="120" cy="135" rx="85" ry="62" fill="#C8B898"/>
+            <ellipse cx="92"  cy="118" rx="52" ry="38" fill="#BDA882"/>
+            <rect x="0" y="198" width="240" height="26" fill="#E8F4EC"/>
+            <text x="10" y="216" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#1A8A42">EDIBLE</text>
+            <rect width="240" height="34" fill="#EAE8E2"/>
+            <text x="120" y="20" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#B8890A">MANOKSENSE</text>
+            <text x="120" y="246" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="24" font-weight="600" fill="#1A8A42">EDIBLE</text>
+            <text x="120" y="302" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#C8C6C0">tap ◉ to scan again</text>
+          </svg>
+        </div>
+        <div class="screen-cap" style="color:#1A8A42;">EDIBLE</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <div class="device-frame sz-xs">
+          <svg viewBox="0 0 240 320" xmlns="http://www.w3.org/2000/svg">
+            <rect width="240" height="320" fill="#F5F3EE"/>
+            <rect x="0" y="34" width="240" height="190" fill="#DDD9CF"/>
+            <ellipse cx="120" cy="135" rx="85" ry="62" fill="#C8B898"/>
+            <ellipse cx="92"  cy="118" rx="52" ry="38" fill="#D2C0A4"/>
+            <rect x="0" y="198" width="240" height="26" fill="#F4EEE0"/>
+            <text x="10" y="216" font-family="'IBM Plex Mono',monospace" font-size="12" font-weight="600" fill="#B8890A">ADULTERATED</text>
+            <rect width="240" height="34" fill="#EAE8E2"/>
+            <text x="120" y="20" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#B8890A">MANOKSENSE</text>
+            <text x="120" y="246" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="18" font-weight="600" fill="#B8890A">ADULTERATED</text>
+            <text x="120" y="302" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#C8C6C0">tap ◉ to scan again</text>
+          </svg>
+        </div>
+        <div class="screen-cap" style="color:#B8890A;">ADULTERATED</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <div class="device-frame sz-xs">
+          <svg viewBox="0 0 240 320" xmlns="http://www.w3.org/2000/svg">
+            <rect width="240" height="320" fill="#F5F3EE"/>
+            <rect x="0" y="34" width="240" height="190" fill="#DDD9CF"/>
+            <ellipse cx="120" cy="135" rx="85" ry="62" fill="#C8B898"/>
+            <ellipse cx="92"  cy="118" rx="52" ry="38" fill="#BDA882"/>
+            <ellipse cx="148" cy="148" rx="46" ry="32" fill="#C4AC8A"/>
+            <rect x="0" y="198" width="240" height="26" fill="#F4E8E8"/>
+            <text x="10" y="216" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#C02828">SPOILED</text>
+            <rect width="240" height="34" fill="#EAE8E2"/>
+            <text x="120" y="20" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#B8890A">MANOKSENSE</text>
+            <text x="120" y="246" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="24" font-weight="600" fill="#C02828">SPOILED</text>
+            <text x="120" y="302" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#C8C6C0">tap ◉ to scan again</text>
+          </svg>
+        </div>
+        <div class="screen-cap" style="color:#C02828;">SPOILED</div>
+      </div>
+    </div>
+    <div class="callout">⚑ &nbsp;This device is a visual aid only. A result of EDIBLE requires ≥ 55% model confidence. Below this threshold, the device defaults to the next most likely classification. Always combine with physical inspection and professional judgment.</div>
+  </div>
+
+  <!-- 04: SETTINGS & GALLERY -->
+  <div class="section">
+    <div class="sec-label">04 &nbsp; Navigation</div>
+    <div class="sec-title">Settings &amp; Gallery</div>
+    <div class="dual-screen">
+
+      <div class="dual-item">
+        <div class="device-frame sz-lg" style="align-self:flex-start;">
+          <svg viewBox="0 0 240 320" xmlns="http://www.w3.org/2000/svg">
+            <rect width="240" height="320" fill="#F5F3EE"/>
+            <rect width="240" height="50" fill="#EAE8E2"/>
+            <text x="120" y="20" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#B8890A">MANOKSENSE</text>
+            <line x1="25" y1="31" x2="215" y2="31" stroke="#C8C6C0" stroke-width="0.5"/>
+            <rect x="16" y="14" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="25" y="14" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="16" y="23" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <rect x="25" y="23" width="7" height="7" rx="1" fill="#AAAAAA"/>
+            <circle cx="216" cy="22" r="8" fill="none" stroke="#AAAAAA" stroke-width="3.5"/>
+            <circle cx="216" cy="22" r="3" fill="#AAAAAA"/>
+            <text x="120" y="50" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="13" font-weight="500" fill="#1C1A16">Settings</text>
+            <line x1="15" y1="63" x2="225" y2="63" stroke="#C8C6C0" stroke-width="0.5"/>
+            <text x="15" y="76" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#AAAAAA">CONFIG</text>
+            <text x="15" y="100" font-family="'IBM Plex Mono',monospace" font-size="12" fill="#1C1A16">Distance sensor</text>
+            <!-- Toggle OFF state: gray pill, white knob on left -->
+            <rect x="149" y="85" width="80" height="22" rx="11" fill="#C8C6C0"/>
+            <circle cx="163" cy="96" r="9" fill="#FFFFFF"/>
+            <line x1="15" y1="116" x2="225" y2="116" stroke="#DDDBD5" stroke-width="0.5"/>
+            <text x="15" y="138" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#AAAAAA">SYSTEM</text>
+            <text x="15" y="158" font-family="'IBM Plex Mono',monospace" font-size="12" fill="#1C1A16">Camera</text>
+            <rect x="149" y="144" width="80" height="24" rx="12" fill="#E8ECF8" stroke="#3A5AC8" stroke-width="1"/>
+            <text x="189" y="159" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#3A5AC8">RELOAD</text>
+            <line x1="15" y1="172" x2="225" y2="172" stroke="#DDDBD5" stroke-width="0.5"/>
+            <text x="15" y="194" font-family="'IBM Plex Mono',monospace" font-size="12" fill="#1C1A16">LED strip</text>
+            <rect x="149" y="180" width="80" height="24" rx="12" fill="#E8F4EC" stroke="#1A8A42" stroke-width="1"/>
+            <text x="189" y="195" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#1A8A42">RELOAD</text>
+            <line x1="15" y1="208" x2="225" y2="208" stroke="#DDDBD5" stroke-width="0.5"/>
+            <text x="15" y="230" font-family="'IBM Plex Mono',monospace" font-size="12" fill="#1C1A16">Power off</text>
+            <rect x="149" y="216" width="80" height="24" rx="12" fill="#F4E8E8" stroke="#C02828" stroke-width="1"/>
+            <text x="189" y="231" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#C02828">SHUT DOWN</text>
+            <line x1="15" y1="244" x2="225" y2="244" stroke="#DDDBD5" stroke-width="0.5"/>
+            <text x="120" y="302" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#C8C6C0">tap ◉ to go back</text>
+          </svg>
+        </div>
+        <div>
+          <div class="dual-label">Settings screen</div>
+          <p class="dual-text">Tap the gear icon (⚙) from the home screen to open Settings. Toggle the distance sensor on or off. Use RELOAD to restart a frozen camera or LED strip without rebooting. Use SHUT DOWN → CONFIRM? to safely power off the device. Tap the shutter to return.</p>
+        </div>
+      </div>
+
+      <div class="dual-item">
+        <div class="device-frame sz-lg" style="align-self:flex-start;">
+          <svg viewBox="0 0 240 320" xmlns="http://www.w3.org/2000/svg">
+            <rect width="240" height="320" fill="#F5F3EE"/>
+            <rect width="240" height="50" fill="#EAE8E2"/>
+            <text x="120" y="16" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="14" font-weight="600" fill="#B8890A">MANOKSENSE</text>
+            <line x1="25" y1="26" x2="215" y2="26" stroke="#C8C6C0" stroke-width="0.5"/>
+            <text x="120" y="40" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" font-weight="500" fill="#1C1A16">Gallery  (6)</text>
+            <line x1="15" y1="50" x2="225" y2="50" stroke="#C8C6C0" stroke-width="0.5"/>
+            <!-- Row 1 thumbnails -->
+            <rect x="4"   y="56"  width="72" height="72" rx="2" fill="#DDD9CF"/>
+            <ellipse cx="40"  cy="88"  rx="26" ry="20" fill="#C8B898"/>
+            <circle cx="12"  cy="120" r="5" fill="#1A8A42"/>
+            <rect x="80"  y="56"  width="72" height="72" rx="2" fill="#DDD9CF"/>
+            <ellipse cx="116" cy="88"  rx="26" ry="20" fill="#D2C0A4"/>
+            <circle cx="88"  cy="120" r="5" fill="#1A8A42"/>
+            <rect x="156" y="56"  width="72" height="72" rx="2" fill="#DDD9CF"/>
+            <ellipse cx="192" cy="88"  rx="26" ry="20" fill="#BDA882"/>
+            <circle cx="164" cy="120" r="5" fill="#C02828"/>
+            <!-- Row 2 thumbnails -->
+            <rect x="4"   y="132" width="72" height="72" rx="2" fill="#DDD9CF"/>
+            <ellipse cx="40"  cy="164" rx="26" ry="20" fill="#C8B898"/>
+            <circle cx="12"  cy="196" r="5" fill="#1A8A42"/>
+            <rect x="80"  y="132" width="72" height="72" rx="2" fill="#DDD9CF"/>
+            <ellipse cx="116" cy="164" rx="26" ry="20" fill="#C4AC8A"/>
+            <circle cx="88"  cy="196" r="5" fill="#B8890A"/>
+            <rect x="156" y="132" width="72" height="72" rx="2" fill="#DDD9CF"/>
+            <ellipse cx="192" cy="164" rx="26" ry="20" fill="#D2C0A4"/>
+            <circle cx="164" cy="196" r="5" fill="#1A8A42"/>
+            <!-- Nav -->
+            <text x="30"  y="290" font-family="'IBM Plex Mono',monospace" font-size="12" font-weight="500" fill="#B8890A">PREV</text>
+            <text x="120" y="290" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="12" fill="#AAAAAA">1 / 2</text>
+            <text x="210" y="290" text-anchor="end" font-family="'IBM Plex Mono',monospace" font-size="12" font-weight="500" fill="#B8890A">NEXT</text>
+            <text x="120" y="312" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#C8C6C0">tap ◉ to go back</text>
+          </svg>
+        </div>
+        <div>
+          <div class="dual-label">Gallery screen</div>
+          <p class="dual-text">Tap the grid icon (⊞) from the home screen to open the Gallery. Saved scans are shown as thumbnails grouped by session, newest first. A colored dot at the bottom-left of each thumbnail indicates the classification result. Tap a thumbnail to view the full-size captured frames. Use PREV / NEXT to paginate.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 05: TIPS -->
+  <div class="section">
+    <div class="sec-label">05 &nbsp; Tips</div>
+    <div class="sec-title">Best practices</div>
+    <div class="tips">
+      <div class="tip"><span class="tip-mark">→</span><span class="tip-text">Ensure the LED strip illuminates the sample evenly. Uneven or dim lighting is the most common cause of inaccurate results.</span></div>
+      <div class="tip"><span class="tip-mark">→</span><span class="tip-text">Place the meat on a neutral, non-reflective surface. Glossy trays or strong background colors can confuse the model.</span></div>
+      <div class="tip"><span class="tip-mark">→</span><span class="tip-text">Keep the sample inside the green viewfinder box in all three captures for best coverage of the sample.</span></div>
+      <div class="tip"><span class="tip-mark">→</span><span class="tip-text">If the camera freezes, go to Settings → Camera → RELOAD. This restarts the image pipeline without a full reboot.</span></div>
+      <div class="tip"><span class="tip-mark">→</span><span class="tip-text">If the LED strip is unresponsive after a scan, go to Settings → LED strip → RELOAD to reinitialize the NeoPixel.</span></div>
+      <div class="tip"><span class="tip-mark">→</span><span class="tip-text">Always use Settings → Power off → CONFIRM? to shut down. Never cut power abruptly while the camera or model is running.</span></div>
+      <div class="tip"><span class="tip-mark">→</span><span class="tip-text">Periodically delete old sessions in the Gallery to free up storage space on the device.</span></div>
+    </div>
+  </div>
+
+  <!-- 06: SPECS -->
+  <div class="section">
+    <div class="sec-label">06 &nbsp; Reference</div>
+    <div class="sec-title">Technical specifications</div>
+    <table class="specs-table">
+      <tr><td>Model</td><td>EfficientNetB2 (TFLite, float16)</td></tr>
+      <tr><td>Input resolution</td><td>260 × 260 px, center-cropped</td></tr>
+      <tr><td>Classes</td><td>Edible &nbsp;/&nbsp; Adulterated &nbsp;/&nbsp; Spoiled</td></tr>
+      <tr><td>Edible threshold</td><td>≥ 55% confidence</td></tr>
+      <tr><td>Photos per scan</td><td>3 (predictions averaged)</td></tr>
+      <tr><td>Camera resolution</td><td>1280 × 720 px (cropped to 960 × 720)</td></tr>
+      <tr><td>Preview stream</td><td>320 × 180 px (lores)</td></tr>
+      <tr><td>Display</td><td>ILI9341 TFT, 320 × 240 px, SPI</td></tr>
+      <tr><td>Touch controller</td><td>XPT2046, SPI bus 1</td></tr>
+      <tr><td>LED</td><td>4× NeoPixel, GPIO D12, brightness 100%</td></tr>
+      <tr><td>Distance sensor (opt.)</td><td>VL53L1X ToF, I²C, range 0–25 cm</td></tr>
+      <tr><td>Image storage</td><td>captures/gallery/ &nbsp;·&nbsp; JPEG 92%</td></tr>
+      <tr><td>Touch debounce</td><td>2.0 seconds between inputs</td></tr>
+    </table>
+  </div>
+
+</div>
+
+<div class="footer">
+  <div class="footer-brand">MANOKSENSE</div>
+  <div class="footer-meta">Chicken Quality Classifier &nbsp;·&nbsp; Illustrated Manual v1.0<br>For research and educational use only</div>
+</div>
+
+</body>
+</html>
