@@ -37,7 +37,6 @@ optional distance sensor to guide the user to the correct capture distance.
 manoksense/
 ├── config.py               # All hardware pins, UI layout, and app constants
 ├── main.py                 # Entry point — boots hardware and runs the state machine
-├── inference_bridge.py     # Sends frames to the inference worker via Unix socket
 ├── inference_worker.py     # Runs TFLite inference in a separate Python 3.11 process
 ├── settings.json           # Auto-generated — persists user preferences between sessions
 ├── STYLE.md                # Coding conventions and style rules
@@ -50,6 +49,7 @@ manoksense/
 └── src/
     ├── __init__.py
     ├── boot.py             # Hardware initialisation sequence with animated progress screen
+    ├── inference_bridge.py # Sends frames to the inference worker via Unix socket
     ├── capture.py          # Image save orchestration and filename generation
     ├── classifier.py       # TFLite model wrapper — preprocessing, inference, dequantization
     ├── context.py          # AppContext — shared hardware refs and mutable state for all states
